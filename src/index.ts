@@ -37,7 +37,10 @@ export {
   rollBackward,
   rollForward,
   subtractWorkdays,
+  workdayOfMonth,
   workdaysBetween,
+  workdaysByWeek,
+  workdaysInMonth,
 } from './workdays.js';
 export {
   addWorkingTime,

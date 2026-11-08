@@ -2,6 +2,7 @@
 // so the documentation cannot drift from the code.
 import { readFileSync } from 'node:fs';
 import Holidays from 'date-holidays';
+import moment from 'moment-business-days';
 import { Temporal } from 'temporal-polyfill/full';
 import { describe, expect, it } from 'vitest';
 import * as lib from '../src/index.js';
@@ -39,16 +40,18 @@ describe('README examples', () => {
       const run = new Function(
         'lib',
         'Holidays',
+        'moment',
         'Temporal',
         '__check',
         `const {${Object.keys(lib).join(',')}} = lib;\n${code}`,
       ) as (
         library: typeof lib,
         holidays: typeof Holidays,
+        momentBusinessDays: typeof moment,
         temporal: typeof Temporal,
         assert: (actual: unknown, expected: unknown, line: string) => void,
       ) => void;
-      run(lib, Holidays, Temporal, check);
+      run(lib, Holidays, moment, Temporal, check);
     });
   });
 });

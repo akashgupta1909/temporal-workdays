@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+### Added
+
+- `workdaysInMonth(date)`, `workdayOfMonth(date)` and `workdaysByWeek(start, end)` (also on calendars), covering
+  `moment-business-days`' `monthBusinessDays`, `businessDaysIntoMonth`, `monthBusinessWeeks` and
+  `businessWeeksBetween`. Weeks start after the weekend (Sunday for a Friday–Saturday weekend).
+- README: a migration guide from `moment-business-days`, with every translation verified against the real package
+  in the test suite.
+
 ## 0.2.0
 
 ### Added

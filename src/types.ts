@@ -10,6 +10,7 @@ export interface PlainDateLike {
   readonly monthCode: string;
   readonly day: number;
   readonly dayOfWeek: number;
+  readonly daysInMonth: number;
   withCalendar(calendar: 'iso8601'): PlainDateLike;
   add(duration: { days: number }): PlainDateLike;
   toString(): string;

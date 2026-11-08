@@ -46,6 +46,14 @@ for (const [name, lib] of [
     hours: [['09:00', '17:00']],
   });
   assert.deepEqual(eve, [['09:00', '14:00']], `${name}: fromDateHolidays`);
+
+  assert.equal(lib.workdaysInMonth(d('2026-11-10')).length, 21, `${name}: workdaysInMonth`);
+  assert.equal(lib.workdayOfMonth(d('2026-11-10')), 7, `${name}: workdayOfMonth`);
+  assert.deepEqual(
+    lib.workdaysByWeek(d('2026-11-01'), d('2026-11-08')).map((w) => w.length),
+    [5],
+    `${name}: workdaysByWeek`,
+  );
 }
 assert.notEqual(esm.addWorkdays, undefined);
 console.log(`smoke ok on Node ${process.version}`);

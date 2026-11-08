@@ -14,7 +14,10 @@ import {
   rollBackward,
   rollForward,
   subtractWorkdays,
+  workdayOfMonth,
   workdaysBetween,
+  workdaysByWeek,
+  workdaysInMonth,
 } from '../src/index.js';
 import { config, plainDate, referenceIsWorkday, toOptions } from './arbitraries.js';
 
@@ -111,6 +114,39 @@ describe('properties', () => {
         expect(str(cal.rollBackward(a))).toBe(str(rollBackward(a, o)));
         expect(cal.workdaysBetween(a, b)).toBe(workdaysBetween(a, b, o));
         expect([...cal.eachWorkday(a, b)].map(str)).toEqual([...eachWorkday(a, b, o)].map(str));
+      }),
+    );
+  });
+
+  it('workdaysInMonth and workdayOfMonth agree with the reference', () => {
+    fc.assert(
+      fc.property(config, plainDate, (c, d) => {
+        const o = toOptions(c);
+        const expected: string[] = [];
+        for (let x = d.with({ day: 1 }); x.month === d.month; x = x.add({ days: 1 })) {
+          if (referenceIsWorkday(x, c)) expected.push(x.toString());
+        }
+        expect(workdaysInMonth(d, o).map(String)).toEqual(expected);
+        expect(workdayOfMonth(d, o)).toBe(expected.filter((x) => x <= d.toString()).length);
+      }),
+    );
+  });
+
+  it('workdaysByWeek groups workdays by the week that starts after the weekend', () => {
+    fc.assert(
+      fc.property(config, plainDate, fc.nat({ max: 60 }), (c, start, len) => {
+        const o = toOptions(c);
+        const end = start.add({ days: len });
+        // Reference: the first day d whose previous day is a weekend day and d is not; else Monday.
+        const weekend = c.weekend as number[];
+        const weekStart =
+          [1, 2, 3, 4, 5, 6, 7].find((d) => weekend.includes(d === 1 ? 7 : d - 1) && !weekend.includes(d)) ?? 1;
+        const groups = new Map<string, string[]>();
+        for (const day of eachWorkday(start, end, o)) {
+          const key = day.subtract({ days: (day.dayOfWeek - weekStart + 7) % 7 }).toString();
+          groups.set(key, [...(groups.get(key) ?? []), day.toString()]);
+        }
+        expect(workdaysByWeek(start, end, o).map((w) => w.map(String))).toEqual([...groups.values()]);
       }),
     );
   });

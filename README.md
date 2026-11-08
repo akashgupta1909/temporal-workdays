@@ -6,11 +6,14 @@ Business days and business hours for the JavaScript [Temporal API](https://devel
 - **Working hours** — "add 4 business hours", working time between two moments, breaks, half days, per-date hours. Exact across DST changes.
 - **Holiday data** — plug in [`date-holidays`](https://www.npmjs.com/package/date-holidays) (200+ countries), time-zone safe.
 - **Built for Temporal** — `PlainDate`, `PlainDateTime` and `ZonedDateTime` in, the same type out. Works with native Temporal, `temporal-polyfill` or `@js-temporal/polyfill`; no global `Temporal` needed, at runtime or in your types.
-- **Small and strict** — zero dependencies, tree-shakeable (workdays alone ≈ 1.8 kB, everything ≈ 5.5 kB min+brotli), ESM + CommonJS, strict TypeScript types, clear errors instead of silently wrong dates.
+- **Small and strict** — zero dependencies, tree-shakeable (workdays alone ≈ 1.8 kB, everything ≈ 5.7 kB min+brotli), ESM + CommonJS, strict TypeScript types, clear errors instead of silently wrong dates.
 
 ```sh
 npm install temporal-workdays
 ```
+
+**Coming from `moment-business-days`?** Every feature has an equivalent, checked against it in the test suite — see
+the [migration guide](#migrating-from-moment-business-days).
 
 ## Workdays
 
@@ -145,6 +148,9 @@ isWorkday(Temporal.PlainDate.from('2026-11-26'), options); // → false
 | `rollForward(date)` / `rollBackward(date)`                | `T`: `date` if it is a workday, else the next / previous one.                                                    |
 | `workdaysBetween(start, end)`                             | `number` of workdays in `(start, end]`; negative if `end < start`. `workdaysBetween(d, addWorkdays(d, n)) === n` |
 | `eachWorkday(start, end)`                                 | A generator of every workday in `[start, end]`, as `T`.                                                          |
+| `workdaysInMonth(date)`                                   | `T[]`, every workday in `date`'s month (in its own calendar).                                                    |
+| `workdayOfMonth(date)`                                    | `number` of workdays in the month up to and including `date` (1 on the first workday).                           |
+| `workdaysByWeek(start, end)`                              | `T[][]`, the workdays in `[start, end]` grouped by week; weeks start after the weekend.                          |
 
 ### Working time — accept `PlainDateTime` or `ZonedDateTime`, need `hours`
 
@@ -190,15 +196,178 @@ import { Temporal } from 'temporal-polyfill';
 Non-ISO calendars (`hebrew`, `japanese`, …) work; weekends and holidays are matched on the ISO date and results keep
 the input's calendar. Node.js 18+.
 
-## Migrating from moment-business-days / luxon-business-days
+## Migrating from moment-business-days
 
-| moment-business-days                                       | temporal-workdays                                       |
-| ---------------------------------------------------------- | ------------------------------------------------------- |
-| `moment(d).businessAdd(3)` / `.businessSubtract(3)`        | `addWorkdays(d, 3)` / `subtractWorkdays(d, 3)`          |
-| `moment(d).isBusinessDay()`                                | `isWorkday(d)`                                          |
-| `moment(d).nextBusinessDay()` / `.prevBusinessDay()`       | `nextWorkday(d)` / `previousWorkday(d)`                 |
-| `moment(a).businessDiff(moment(b))`                        | `workdaysBetween(b, a)` (check the endpoint convention) |
-| `moment.updateLocale('us', { holidays, workingWeekdays })` | `createWorkCalendar({ holidays, weekend })`             |
+Everything `moment-business-days` does has an equivalent here. Every translation in this section is checked against
+the real `moment-business-days` in this package's test suite
+([`test/moment-business-days.test.ts`](test/moment-business-days.test.ts)), over thousands of random working weeks and
+holiday lists, and the examples below run both libraries side by side.
+
+### 1. Install
+
+```sh
+npm install temporal-workdays
+npm install temporal-polyfill # only where Temporal isn't native yet (Safari, Node < 26)
+```
+
+### 2. Move the configuration
+
+`moment-business-days` reads its settings from a global moment locale. Here they are a plain object: pass it to
+`createWorkCalendar`, or as the last argument of any function.
+
+```ts
+// Before
+moment.updateLocale('us', {
+  workingWeekdays: [1, 2, 3, 4, 5],
+  holidays: ['07-03-2026', '12-25-2026'],
+  holidayFormat: 'MM-DD-YYYY',
+});
+
+// After
+const us = createWorkCalendar({
+  weekend: [6, 7],
+  holidays: ['2026-07-03', '2026-12-25'],
+});
+
+us.isWorkday(Temporal.PlainDate.from('2026-07-03')); // → false
+```
+
+| moment locale setting                          | temporal-workdays option                                                                  |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `workingWeekdays` (0 = Sunday … 6)             | `weekend`: the days that are **not** working days, ISO numbered (1 = Monday … 7 = Sunday) |
+| `holidays` + `holidayFormat`                   | `holidays` as ISO `'YYYY-MM-DD'` strings (or `'MM-DD'` for every year)                    |
+| `holiday(date)` function on the locale         | `holidays: (date) => …` (receives a `Temporal.PlainDate`)                                 |
+| `nextBusinessDayLimit`, `prevBusinessDayLimit` | not needed: there is no search limit                                                      |
+| one locale per region                          | one `createWorkCalendar(…)` per region                                                    |
+
+To convert an existing configuration:
+
+```ts
+// workingWeekdays → weekend
+const workingWeekdays = [0, 1, 2, 3, 4]; // Sunday–Thursday
+const working = workingWeekdays.map((day) => (day === 0 ? 7 : day));
+const weekend = [1, 2, 3, 4, 5, 6, 7].filter((day) => !working.includes(day));
+weekend; // → [5, 6]
+
+// holidays in any holidayFormat → ISO dates
+const holidays = ['07-03-2026', '12-25-2026']; // holidayFormat: 'MM-DD-YYYY'
+const isoHolidays = holidays.map((h) => moment(h, 'MM-DD-YYYY').format('YYYY-MM-DD'));
+isoHolidays; // → ['2026-07-03', '2026-12-25']
+```
+
+### 3. Replace the calls
+
+`m` is a moment, `d` a `Temporal.PlainDate` (or `PlainDateTime` / `ZonedDateTime`; you get the same type back).
+
+| moment-business-days         | temporal-workdays                                                         | Notes                                     |
+| ---------------------------- | ------------------------------------------------------------------------- | ----------------------------------------- |
+| `m.isBusinessDay()`          | `isWorkday(d)`                                                            |                                           |
+| `m.isHoliday()`              | `isHoliday(d)`                                                            |                                           |
+| `m.businessAdd(n)`           | `addWorkdays(d, n)`                                                       | moment rounds fractional `n`; this throws |
+| `m.businessSubtract(n)`      | `subtractWorkdays(d, n)`                                                  |                                           |
+| `m.nextBusinessDay()`        | `nextWorkday(d)`                                                          | no 7-day limit; `d` is not modified       |
+| `m.prevBusinessDay()`        | `previousWorkday(d)`                                                      | no 7-day limit; `d` is not modified       |
+| `a.businessDiff(b)`          | `Math.abs(workdaysBetween(b, a))`                                         | see [businessDiff](#businessdiff) below   |
+| `a.businessDiff(b, true)`    | `workdaysBetween(b, a)`                                                   | see [businessDiff](#businessdiff) below   |
+| `m.monthBusinessDays()`      | `workdaysInMonth(d)`                                                      |                                           |
+| `m.monthBusinessDays(end)`   | `[...eachWorkday(d.with({ day: 1 }), end)]`                               |                                           |
+| `m.businessDaysIntoMonth()`  | `workdayOfMonth(d)`                                                       | `0` before the month's first workday      |
+| `m.monthBusinessWeeks()`     | `workdaysByWeek(d.with({ day: 1 }), d.with({ day: d.daysInMonth }))`      | respects your holidays and weekend        |
+| `m.monthBusinessWeeks(true)` | `workdaysByWeek(d, d.with({ day: d.daysInMonth }))`                       |                                           |
+| `a.businessWeeksBetween(b)`  | `workdaysByWeek(a, b)`                                                    |                                           |
+| `m.monthNaturalDays()`       | plain Temporal, [see below](#monthnaturaldays-and-monthnaturalweeks)      |                                           |
+| `m.monthNaturalWeeks()`      | plain Temporal, [see below](#monthnaturaldays-and-monthnaturalweeks)      |                                           |
+| `m.businessAdd(n, 'hours')`  | `addWorkingTime(dateTime, { hours: n }, { hours: [['09:00', '17:00']] })` | real [working hours](#working-hours)      |
+
+Side by side:
+
+```ts
+import moment from 'moment-business-days';
+import { addWorkdays, workdaysBetween, workdaysInMonth } from 'temporal-workdays';
+
+moment.updateLocale('en', { holidays: ['2026-11-26'], holidayFormat: 'YYYY-MM-DD', workingWeekdays: [1, 2, 3, 4, 5] });
+const options = { holidays: ['2026-11-26'] };
+
+moment('2026-11-25').businessAdd(1).format('YYYY-MM-DD'); // → '2026-11-27'
+addWorkdays(Temporal.PlainDate.from('2026-11-25'), 1, options).toString(); // → '2026-11-27'
+
+moment('2026-11-30').businessDiff(moment('2026-11-23')); // → 4
+workdaysBetween(Temporal.PlainDate.from('2026-11-23'), Temporal.PlainDate.from('2026-11-30'), options); // → 4
+
+moment('2026-11-10').monthBusinessDays().length; // → 20
+workdaysInMonth(Temporal.PlainDate.from('2026-11-10'), options).length; // → 20
+```
+
+Moving between the two while you migrate:
+
+```ts
+const fromMoment = Temporal.PlainDate.from(moment('2026-11-06').format('YYYY-MM-DD'));
+fromMoment.toString(); // → '2026-11-06'
+moment(fromMoment.toString()).format('YYYY-MM-DD'); // → '2026-11-06'
+```
+
+### What behaves differently
+
+#### businessDiff
+
+`moment-business-days` counts the workdays in `[earlier, later)`; `workdaysBetween` counts `(earlier, later]`, so that
+`workdaysBetween(d, addWorkdays(d, n)) === n` always holds. The two agree whenever both dates are workdays. If an end
+can be a weekend or holiday and you need moment's exact numbers, shift both dates back a day:
+
+```ts
+const saturday = Temporal.PlainDate.from('2026-11-07');
+const monday = Temporal.PlainDate.from('2026-11-09');
+
+moment('2026-11-09').businessDiff(moment('2026-11-07')); // → 0
+workdaysBetween(saturday, monday); // → 1
+workdaysBetween(saturday.subtract({ days: 1 }), monday.subtract({ days: 1 })); // → 0
+```
+
+#### Other differences
+
+- **Nothing is mutated.** `m.nextBusinessDay()` changes `m`; `nextWorkday(d)` returns a new date.
+- **No search limits.** `nextBusinessDay()` gives up after 7 days and returns a non-business day; `nextWorkday` always
+  finds the next workday (it throws only if a configuration has no workdays at all).
+- **Weeks respect your calendar.** `monthBusinessWeeks()` assumes Monday–Friday and ignores holidays, and it adds an
+  empty week when a month ends on a weekend. `workdaysByWeek` uses your weekend and holidays, starts weeks after the
+  weekend (Sunday for a Friday–Saturday weekend) and has no empty weeks.
+- **`businessDaysIntoMonth()`** on a weekend at the start of a month counts in the _previous_ month; `workdayOfMonth`
+  returns `0`.
+- **Invalid input throws** (fractional amounts, unknown option names, impossible dates) instead of being rounded or
+  ignored.
+- **Time zones are explicit.** Moments are in local time; use `PlainDate` for dates, `ZonedDateTime` for instants.
+
+#### monthNaturalDays and monthNaturalWeeks
+
+These list every day of the month, so they're plain Temporal:
+
+```ts
+const february = Temporal.PlainDate.from('2026-02-10');
+
+// monthNaturalDays()
+const days = Array.from({ length: february.daysInMonth }, (_, i) => february.with({ day: i + 1 }));
+days.length; // → 28
+
+// monthNaturalWeeks(): Sunday-to-Saturday weeks
+const weeks = [];
+for (const day of days) {
+  if (weeks.length === 0 || day.dayOfWeek === 7) weeks.push([]);
+  weeks[weeks.length - 1].push(day);
+}
+weeks.map((week) => week.length); // → [7, 7, 7, 7]
+
+// moment-business-days adds an empty last week here
+const momentWeeks = moment('2026-02-10').monthNaturalWeeks();
+momentWeeks.map((week) => week.length); // → [7, 7, 7, 7, 0]
+```
+
+### What you get on top
+
+- [Working hours](#working-hours): `addWorkingTime`, `workingTimeBetween`, breaks, half days, exact across DST.
+- [Holiday data for 200+ countries](#holidays-from-date-holidays) via `date-holidays`, independent of the machine's
+  time zone.
+- Typed `PlainDate` / `PlainDateTime` / `ZonedDateTime` support, make-up workdays (`extraWorkdays`), yearly holidays
+  (`'12-25'`), several calendars side by side, and no global state.
 
 ## License
 

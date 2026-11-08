@@ -13,7 +13,10 @@ import {
   type SpecialHoursFunction,
   type TimeRangeText,
   type WorkCalendar,
+  workdayOfMonth,
   workdaysBetween,
+  workdaysByWeek,
+  workdaysInMonth,
   workingTimeBetween,
   type WorkingTimeOptions,
   type WorkTimeCalendar,
@@ -31,6 +34,10 @@ describe('public types', () => {
     expectTypeOf(eachWorkday(zoned, date)).toEqualTypeOf<Generator<Temporal.ZonedDateTime, void>>();
     expectTypeOf(createWorkCalendar().addWorkdays(dateTime, 1)).toEqualTypeOf<Temporal.PlainDateTime>();
     expectTypeOf(workdaysBetween(date, zoned)).toEqualTypeOf<number>();
+    expectTypeOf(workdaysInMonth(zoned)).toEqualTypeOf<Temporal.ZonedDateTime[]>();
+    expectTypeOf(workdaysByWeek(dateTime, date)).toEqualTypeOf<Temporal.PlainDateTime[][]>();
+    expectTypeOf(workdayOfMonth(date)).toEqualTypeOf<number>();
+    expectTypeOf(createWorkCalendar().workdaysInMonth(date)).toEqualTypeOf<Temporal.PlainDate[]>();
   });
 
   it('accept holiday predicates typed with the real Temporal.PlainDate', () => {
