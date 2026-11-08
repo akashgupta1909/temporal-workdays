@@ -59,7 +59,8 @@
     "typecheck": "tsc",
     "lint:pkg": "publint && attw --pack .",
     "check": "npm run typecheck && npm test && npm run build && npm run lint:pkg",
-    "prepublishOnly": "npm run check"
+    "prepublishOnly": "npm run check",
+    "test:smoke": "node test/smoke/smoke.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

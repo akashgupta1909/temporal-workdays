@@ -13,20 +13,42 @@ function rng(seed: number) {
   };
 }
 
+const MS_PER_DAY = 86_400_000;
 const EPOCH = Temporal.PlainDate.from('1970-01-01');
 
-describe('epoch-day math matches Temporal', () => {
-  it('round-trips and gives the right day of week from 1600 to 2400', () => {
-    let date = Temporal.PlainDate.from('1600-01-01');
-    let expected = date.since(EPOCH).days;
-    const end = Temporal.PlainDate.from('2400-12-31');
-    while (Temporal.PlainDate.compare(date, end) <= 0) {
+describe('epoch-day math', () => {
+  // Every day from 1600 to 2400 (~292k days) against the native Date implementation,
+  // an independent oracle that is fast enough to check exhaustively. Mismatches are
+  // collected rather than asserted one by one, so the loop stays cheap.
+  it('matches Date.UTC for every day from 1600 to 2400', () => {
+    const first = Date.UTC(1600, 0, 1) / MS_PER_DAY;
+    const last = Date.UTC(2400, 11, 31) / MS_PER_DAY;
+    const mismatches: string[] = [];
+    for (let day = first; day <= last; day++) {
+      const d = new Date(day * MS_PER_DAY);
+      const [y, m, dd] = [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
+      const isoDow = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
+      const [ry, rm, rd] = isoFromEpochDay(day);
+      if (epochDayFromIso(y, m, dd) !== day || ry !== y || rm !== m || rd !== dd || dayOfWeekFromEpochDay(day) !== isoDow) {
+        mismatches.push(`${y}-${m}-${dd} (epoch day ${day})`);
+        if (mismatches.length >= 10) break;
+      }
+    }
+    expect(mismatches).toEqual([]);
+  });
+
+  it('matches Temporal on boundary and random dates', () => {
+    const rand = rng(7);
+    const samples = [
+      '0001-01-01', '1582-10-15', '1600-02-29', '1700-02-28', '1900-03-01', '1969-12-31',
+      '1970-01-01', '2000-02-29', '2100-02-28', '2400-02-29', '9999-12-31', '-000001-12-31',
+    ].map((s) => Temporal.PlainDate.from(s));
+    for (let i = 0; i < 500; i++) samples.push(EPOCH.add({ days: Math.floor(rand() * 2_000_000) - 1_000_000 }));
+    for (const date of samples) {
       const ed = epochDayFromIso(date.year, date.month, date.day);
-      expect(ed).toBe(expected);
-      expect(isoFromEpochDay(ed)).toEqual([date.year, date.month, date.day]);
-      expect(dayOfWeekFromEpochDay(ed)).toBe(date.dayOfWeek);
-      date = date.add({ days: 1 });
-      expected++;
+      expect(ed, date.toString()).toBe(date.since(EPOCH).days);
+      expect(isoFromEpochDay(ed), date.toString()).toEqual([date.year, date.month, date.day]);
+      expect(dayOfWeekFromEpochDay(ed), date.toString()).toBe(date.dayOfWeek);
     }
   });
 });
