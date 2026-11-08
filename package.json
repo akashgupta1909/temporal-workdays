@@ -1,0 +1,72 @@
+{
+  "name": "temporal-workdays",
+  "version": "0.1.0",
+  "description": "Business-day math for the JavaScript Temporal API: add/subtract workdays, count workdays between dates, custom weekends, holidays and make-up days. Zero dependencies.",
+  "keywords": [
+    "temporal",
+    "business-days",
+    "workdays",
+    "working-days",
+    "holidays",
+    "weekend",
+    "date",
+    "calendar",
+    "sla",
+    "plaindate",
+    "zoneddatetime"
+  ],
+  "license": "MIT",
+  "author": "Akash Gupta",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akashgupta1909/temporal-workdays.git"
+  },
+  "homepage": "https://github.com/akashgupta1909/temporal-workdays#readme",
+  "bugs": {
+    "url": "https://github.com/akashgupta1909/temporal-workdays/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "CHANGELOG.md",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc",
+    "lint:pkg": "publint && attw --pack .",
+    "check": "npm run typecheck && npm test && npm run build && npm run lint:pkg",
+    "prepublishOnly": "npm run check"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "publint": "^0.3.25",
+    "temporal-polyfill": "^1.0.8",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  }
+}
