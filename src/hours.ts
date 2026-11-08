@@ -14,7 +14,7 @@ import {
   parseDate,
   type DayCalendar,
 } from './day-calendar.js';
-import { dayOfWeekFromEpochDay, epochDayFromIso, isoFromEpochDay } from './epoch.js';
+import { dayOfWeekFromEpochDay, epochDayFromIso, floorDiv, isoFromEpochDay } from './epoch.js';
 import { describe, rangeError, typeError } from './errors.js';
 import {
   DateFactory,
@@ -348,12 +348,6 @@ function addPeriods(pending: Period[], periods: readonly Period[]): Period[] {
   if (first[0] > pendingLast[1]) return pending.concat(periods);
   if (last[1] < pendingFirst[0]) return periods.concat(pending);
   return normalizePeriods([...pending, ...periods]);
-}
-
-/** Floor division by a positive bigint (`/` truncates toward zero, wrong for negative `a`). */
-function floorDiv(a: bigint, b: bigint): bigint {
-  const q = a / b;
-  return a % b < 0n ? q - 1n : q;
 }
 
 function mixedTypesError(value: unknown): TypeError {

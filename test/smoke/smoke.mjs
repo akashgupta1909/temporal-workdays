@@ -37,6 +37,15 @@ for (const [name, lib] of [
   const span = lib.workingTimeBetween(ny, Temporal.ZonedDateTime.from('2026-11-09T13:30[America/New_York]'), hours);
   assert.equal(span.toString(), 'PT4H30M', `${name}: workingTimeBetween`);
   assert.equal(lib.createWorkCalendar(hours).isWorkingTime(ny.with({ hour: 12, minute: 30 })), false, `${name}: lunch`);
+
+  const source = {
+    getHolidays: (y) => [{ date: `${y}-12-24 14:00:00`, type: 'bank', start: new Date(0), end: new Date(36e6) }],
+  };
+  const eve = lib.getWorkingHours(d('2026-12-24'), {
+    ...lib.fromDateHolidays(source, { types: ['bank'] }),
+    hours: [['09:00', '17:00']],
+  });
+  assert.deepEqual(eve, [['09:00', '14:00']], `${name}: fromDateHolidays`);
 }
 assert.notEqual(esm.addWorkdays, undefined);
 console.log(`smoke ok on Node ${process.version}`);

@@ -43,3 +43,9 @@ export function daysInMonth(year: number, month: number): number {
   if (month === 2) return isLeapYear(year) ? 29 : 28;
   return month === 4 || month === 6 || month === 9 || month === 11 ? 30 : 31;
 }
+
+/** Floor division by a positive bigint (`/` truncates toward zero, which is wrong for negative `a`). */
+export function floorDiv(a: bigint, b: bigint): bigint {
+  const q = a / b;
+  return a % b < 0n ? q - 1n : q;
+}

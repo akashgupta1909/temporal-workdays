@@ -1,5 +1,7 @@
+import Holidays from 'date-holidays';
 import {
   addWorkdays,
+  fromDateHolidays,
   addWorkingTime,
   createWorkCalendar,
   getWorkingHours,
@@ -35,4 +37,12 @@ const ranges: readonly (readonly [string, string])[] = getWorkingHours(due, opti
 // @ts-expect-error mixing PlainDateTime and ZonedDateTime is a type error
 workingTimeBetween(plain, zoned, options);
 
-export { count, hours, july5, ranges };
+const german = createWorkCalendar({
+  ...fromDateHolidays(new Holidays('DE', 'BY'), { types: ['public', 'bank'] }),
+  hours: [['09:00', '17:00']],
+});
+const christmasEve: readonly (readonly [string, string])[] = german.getWorkingHours(
+  Temporal.PlainDate.from('2026-12-24'),
+);
+
+export { christmasEve, count, hours, july5, ranges };

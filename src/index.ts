@@ -48,3 +48,10 @@ export {
   subtractWorkingTime,
   workingTimeBetween,
 } from './hours.js';
+export {
+  fromDateHolidays,
+  type DateHolidaysEntry,
+  type DateHolidaysOptions,
+  type DateHolidaysSource,
+  type FromDateHolidaysOptions,
+} from './date-holidays.js';

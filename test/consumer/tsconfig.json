@@ -10,7 +10,8 @@
     "exactOptionalPropertyTypes": true,
     "noEmit": true,
     "skipLibCheck": false,
-    "types": []
+    "types": [],
+    "esModuleInterop": true
   },
   "files": ["native-types.ts"]
 }

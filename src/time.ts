@@ -89,3 +89,16 @@ export function parseDayHours(value: unknown, where: string): readonly Interval[
 export function formatDayHours(intervals: readonly Interval[]): readonly TimeRangeText[] {
   return intervals.map(([start, end]) => [formatTime(start), formatTime(end)] as const);
 }
+/** `intervals` minus `[cutStart, cutEnd)`. */
+export function subtractInterval(intervals: readonly Interval[], cutStart: number, cutEnd: number): Interval[] {
+  const out: Interval[] = [];
+  for (const [start, end] of intervals) {
+    if (end <= cutStart || start >= cutEnd) {
+      out.push([start, end]);
+      continue;
+    }
+    if (start < cutStart) out.push([start, cutStart]);
+    if (end > cutEnd) out.push([cutEnd, end]);
+  }
+  return out;
+}

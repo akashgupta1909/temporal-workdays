@@ -1,4 +1,5 @@
 // Compile-time tests of the public types (run by `vitest --typecheck`).
+import Holidays from 'date-holidays';
 import { Temporal } from 'temporal-polyfill';
 import { describe, expectTypeOf, it } from 'vitest';
 import {
@@ -6,6 +7,7 @@ import {
   addWorkingTime,
   createWorkCalendar,
   eachWorkday,
+  fromDateHolidays,
   getWorkingHours,
   type HolidayPredicate,
   type SpecialHoursFunction,
@@ -93,5 +95,15 @@ describe('working-time types', () => {
     addWorkingTime(dateTime, 'PT1H', options);
     // @ts-expect-error 8 is not a day of week
     createWorkCalendar({ hours: { 8: [] } });
+  });
+});
+
+describe('date-holidays adapter types', () => {
+  it('accepts a real date-holidays instance and spreads into options', () => {
+    const adapted = fromDateHolidays(new Holidays('DE', 'BY'), { types: ['public', 'bank'] });
+    expectTypeOf(createWorkCalendar({ ...adapted, hours: [['09:00', '17:00']] })).toEqualTypeOf<WorkTimeCalendar>();
+    expectTypeOf(createWorkCalendar({ ...adapted })).toEqualTypeOf<WorkCalendar>();
+    // @ts-expect-error not a date-holidays instance
+    fromDateHolidays({ isHoliday: () => false });
   });
 });
