@@ -1,3 +1,5 @@
+import type { DayOfWeek } from './types.js';
+
 // Pure integer date arithmetic on the proleptic ISO calendar.
 // "Epoch day" = number of days since 1970-01-01 (which is day 0).
 // Working on integers keeps the hot loops fast and independent of any
@@ -29,8 +31,8 @@ export function isoFromEpochDay(epochDay: number): [number, number, number] {
 }
 
 /** ISO day of week: 1 = Monday … 7 = Sunday. 1970-01-01 was a Thursday. */
-export function dayOfWeekFromEpochDay(epochDay: number): number {
-  return ((((epochDay + 3) % 7) + 7) % 7) + 1;
+export function dayOfWeekFromEpochDay(epochDay: number): DayOfWeek {
+  return (((((epochDay + 3) % 7) + 7) % 7) + 1) as DayOfWeek;
 }
 
 export function isLeapYear(year: number): boolean {

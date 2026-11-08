@@ -3,11 +3,18 @@ import { Temporal } from 'temporal-polyfill';
 import { describe, expectTypeOf, it } from 'vitest';
 import {
   addWorkdays,
+  addWorkingTime,
   createWorkCalendar,
   eachWorkday,
+  getWorkingHours,
   type HolidayPredicate,
+  type SpecialHoursFunction,
+  type TimeRangeText,
   type WorkCalendar,
   workdaysBetween,
+  workingTimeBetween,
+  type WorkingTimeOptions,
+  type WorkTimeCalendar,
 } from '../src/index.js';
 
 declare const date: Temporal.PlainDate;
@@ -41,5 +48,50 @@ describe('public types', () => {
     createWorkCalendar({ weekend: [0] });
     // @ts-expect-error unknown option
     createWorkCalendar({ holiday: [] });
+  });
+});
+
+describe('working-time types', () => {
+  const options: WorkingTimeOptions = { hours: [['09:00', '17:00']] };
+
+  it("preserve the input type and return the implementation's Duration", () => {
+    expectTypeOf(addWorkingTime(zoned, { hours: 1 }, options)).toEqualTypeOf<Temporal.ZonedDateTime>();
+    expectTypeOf(
+      addWorkingTime(dateTime, Temporal.Duration.from('PT1H'), options),
+    ).toEqualTypeOf<Temporal.PlainDateTime>();
+    expectTypeOf(workingTimeBetween(zoned, zoned, options)).toEqualTypeOf<Temporal.Duration>();
+    expectTypeOf(getWorkingHours(date, options)).toEqualTypeOf<readonly TimeRangeText[]>();
+  });
+
+  it('give calendars working-time methods only when hours are configured', () => {
+    expectTypeOf(createWorkCalendar(options)).toEqualTypeOf<WorkTimeCalendar>();
+    expectTypeOf(createWorkCalendar({ weekend: [5, 6] })).toEqualTypeOf<WorkCalendar>();
+    expectTypeOf(createWorkCalendar(options).workingTimeBetween(dateTime, dateTime)).toEqualTypeOf<Temporal.Duration>();
+    // @ts-expect-error no hours, no working-time methods
+    createWorkCalendar({ weekend: [5, 6] }).addWorkingTime(dateTime, { hours: 1 });
+  });
+
+  it('accept PlainTime ranges, weekly maps and typed special-hours functions', () => {
+    const special = (d: Temporal.PlainDate, regular: readonly TimeRangeText[]) =>
+      d.day === 24 ? regular.slice(0, 1) : undefined;
+    expectTypeOf(special).toExtend<SpecialHoursFunction>();
+    createWorkCalendar({
+      hours: { default: [[Temporal.PlainTime.from('09:00'), '17:00']], 6: [] },
+      specialHours: special,
+    });
+    createWorkCalendar({ hours: [['09:00', '17:00']], specialHours: { '2026-12-24': [['09:00', '13:00']] } });
+  });
+
+  it('reject plain dates, mismatched pairs and missing hours', () => {
+    // @ts-expect-error working time needs a time of day
+    addWorkingTime(date, { hours: 1 }, options);
+    // @ts-expect-error start and end must be the same type
+    workingTimeBetween(zoned, dateTime, options);
+    // @ts-expect-error hours are required
+    addWorkingTime(dateTime, { hours: 1 }, {});
+    // @ts-expect-error durations are objects, not strings
+    addWorkingTime(dateTime, 'PT1H', options);
+    // @ts-expect-error 8 is not a day of week
+    createWorkCalendar({ hours: { 8: [] } });
   });
 });

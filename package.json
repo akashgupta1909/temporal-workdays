@@ -63,8 +63,9 @@
     "format:check": "prettier --check .",
     "size": "size-limit",
     "lint:pkg": "publint && attw --pack .",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && npm run lint:pkg && npm run size && npm run test:smoke",
-    "prepublishOnly": "npm run check"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && npm run test:consumer && npm run lint:pkg && npm run size && npm run test:smoke",
+    "prepublishOnly": "npm run check",
+    "test:consumer": "tsc -p test/consumer"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

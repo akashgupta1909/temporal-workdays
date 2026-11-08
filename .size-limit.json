@@ -1,13 +1,19 @@
 [
   {
-    "name": "full library (ESM, min+brotli)",
+    "name": "everything",
     "path": "dist/index.js",
-    "limit": "3 kB"
+    "limit": "5.5 kB"
   },
   {
-    "name": "addWorkdays only (tree-shaken)",
+    "name": "workdays only: { addWorkdays, workdaysBetween }",
     "path": "dist/index.js",
-    "import": "{ addWorkdays }",
+    "import": "{ addWorkdays, workdaysBetween }",
     "limit": "2 kB"
+  },
+  {
+    "name": "working time only: { addWorkingTime, workingTimeBetween }",
+    "path": "dist/index.js",
+    "import": "{ addWorkingTime, workingTimeBetween }",
+    "limit": "4.5 kB"
   }
 ]

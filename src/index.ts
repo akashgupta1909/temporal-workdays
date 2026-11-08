@@ -1,14 +1,31 @@
 export type {
   DateInput,
+  DateTimeFields,
+  DateTimeInput,
   DateTimeLike,
+  DayHours,
   DayOfWeek,
+  DurationInput,
+  DurationLike,
+  DurationOf,
   HolidayInput,
   HolidayPredicate,
   PlainDateLike,
+  PlainDateTimeLike,
   PlainMonthDayLike,
+  PlainTimeLike,
+  SpecialHours,
+  SpecialHoursFunction,
+  TimeInput,
+  TimeRange,
+  TimeRangeText,
+  WeeklyHours,
   WorkdayOptions,
+  WorkingHours,
+  WorkingTimeOptions,
+  ZonedDateTimeLike,
 } from './types.js';
-export { createWorkCalendar, type WorkCalendar } from './work-calendar.js';
+export { createWorkCalendar, type WorkCalendar, type WorkTimeCalendar } from './work-calendar.js';
 export {
   addWorkdays,
   eachWorkday,
@@ -22,3 +39,12 @@ export {
   subtractWorkdays,
   workdaysBetween,
 } from './workdays.js';
+export {
+  addWorkingTime,
+  getWorkingHours,
+  isWorkingTime,
+  rollBackwardToWorkingTime,
+  rollForwardToWorkingTime,
+  subtractWorkingTime,
+  workingTimeBetween,
+} from './hours.js';

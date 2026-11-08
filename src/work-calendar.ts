@@ -1,5 +1,23 @@
 import { checkOptionsObject, compileDayCalendar, isIterable } from './day-calendar.js';
-import type { DateInput, WorkdayOptions } from './types.js';
+import {
+  addWorkingTimeWith,
+  compileHoursCalendar,
+  getWorkingHoursWith,
+  isWorkingTimeWith,
+  rollBackwardToWorkingTimeWith,
+  rollForwardToWorkingTimeWith,
+  subtractWorkingTimeWith,
+  workingTimeBetweenWith,
+} from './hours.js';
+import type {
+  DateInput,
+  DateTimeInput,
+  DurationInput,
+  DurationOf,
+  TimeRangeText,
+  WorkdayOptions,
+  WorkingTimeOptions,
+} from './types.js';
 import {
   addWorkdaysWith,
   eachWorkdayWith,
@@ -31,37 +49,69 @@ export interface WorkCalendar {
   eachWorkday<T extends DateInput>(start: T, end: DateInput): Generator<T, void>;
 }
 
+/** A calendar created with `hours`: workday helpers plus working-time helpers. */
+export interface WorkTimeCalendar extends WorkCalendar {
+  readonly options: Readonly<WorkingTimeOptions>;
+  isWorkingTime(dateTime: DateTimeInput): boolean;
+  addWorkingTime<T extends DateTimeInput>(dateTime: T, duration: DurationInput): T;
+  subtractWorkingTime<T extends DateTimeInput>(dateTime: T, duration: DurationInput): T;
+  workingTimeBetween<T extends DateTimeInput>(start: T, end: NoInfer<T>): DurationOf<T>;
+  rollForwardToWorkingTime<T extends DateTimeInput>(dateTime: T): T;
+  rollBackwardToWorkingTime<T extends DateTimeInput>(dateTime: T): T;
+  getWorkingHours(date: DateInput): readonly TimeRangeText[];
+}
+
 /**
  * Creates helpers bound to one configuration. The options are validated and read
- * immediately (holidays are parsed once), so later changes to the passed-in arrays
- * don't affect the calendar. Prefer this over the standalone functions when the same
- * configuration is used repeatedly.
+ * immediately (holidays and hours are parsed once), so later changes to the passed-in
+ * arrays don't affect the calendar. Prefer this over the standalone functions when the
+ * same configuration is used repeatedly. With `hours`, the working-time helpers are included.
  */
-export function createWorkCalendar(options: WorkdayOptions = {}): WorkCalendar {
+export function createWorkCalendar(options: WorkingTimeOptions): WorkTimeCalendar;
+export function createWorkCalendar(options?: WorkdayOptions): WorkCalendar;
+export function createWorkCalendar(options: WorkdayOptions | WorkingTimeOptions = {}): WorkCalendar {
   checkOptionsObject(options);
   const snapshot = snapshotOptions(options);
-  const cal = compileDayCalendar(snapshot);
-  return Object.freeze({
+  const days = compileDayCalendar(snapshot);
+  const calendar: WorkCalendar = {
     options: snapshot,
-    isWorkday: (date) => isWorkdayWith(cal, date),
-    isWeekend: (date) => isWeekendWith(cal, date),
-    isHoliday: (date) => isHolidayWith(cal, date),
-    addWorkdays: (date, amount) => addWorkdaysWith(cal, date, amount),
-    subtractWorkdays: (date, amount) => subtractWorkdaysWith(cal, date, amount),
-    nextWorkday: (date) => nextWorkdayWith(cal, date),
-    previousWorkday: (date) => previousWorkdayWith(cal, date),
-    rollForward: (date) => rollForwardWith(cal, date),
-    rollBackward: (date) => rollBackwardWith(cal, date),
-    workdaysBetween: (start, end) => workdaysBetweenWith(cal, start, end),
-    eachWorkday: (start, end) => eachWorkdayWith(cal, start, end),
-  } satisfies WorkCalendar);
+    isWorkday: (date) => isWorkdayWith(days, date),
+    isWeekend: (date) => isWeekendWith(days, date),
+    isHoliday: (date) => isHolidayWith(days, date),
+    addWorkdays: (date, amount) => addWorkdaysWith(days, date, amount),
+    subtractWorkdays: (date, amount) => subtractWorkdaysWith(days, date, amount),
+    nextWorkday: (date) => nextWorkdayWith(days, date),
+    previousWorkday: (date) => previousWorkdayWith(days, date),
+    rollForward: (date) => rollForwardWith(days, date),
+    rollBackward: (date) => rollBackwardWith(days, date),
+    workdaysBetween: (start, end) => workdaysBetweenWith(days, start, end),
+    eachWorkday: (start, end) => eachWorkdayWith(days, start, end),
+  };
+  if (!hasHours(snapshot)) return Object.freeze(calendar);
+
+  const hours = compileHoursCalendar(snapshot);
+  return Object.freeze({
+    ...calendar,
+    options: snapshot,
+    isWorkingTime: (dateTime) => isWorkingTimeWith(hours, dateTime),
+    addWorkingTime: (dateTime, duration) => addWorkingTimeWith(hours, dateTime, duration),
+    subtractWorkingTime: (dateTime, duration) => subtractWorkingTimeWith(hours, dateTime, duration),
+    workingTimeBetween: (start, end) => workingTimeBetweenWith(hours, start, end),
+    rollForwardToWorkingTime: (dateTime) => rollForwardToWorkingTimeWith(hours, dateTime),
+    rollBackwardToWorkingTime: (dateTime) => rollBackwardToWorkingTimeWith(hours, dateTime),
+    getWorkingHours: (date) => getWorkingHoursWith(hours, date),
+  } satisfies WorkTimeCalendar);
+}
+
+function hasHours(options: WorkdayOptions): options is WorkingTimeOptions {
+  return (options as Partial<WorkingTimeOptions>).hours !== undefined;
 }
 
 /**
  * Copies iterables into frozen arrays so the calendar is immune to later mutation.
- * Anything else is passed through unchanged for compileDayCalendar to reject.
+ * Anything else is passed through unchanged for the compilers to reject.
  */
-function snapshotOptions(options: WorkdayOptions): Readonly<WorkdayOptions> {
+function snapshotOptions<O extends WorkdayOptions>(options: O): Readonly<O> {
   const copy = <V>(value: V): V => (isIterable(value) ? (Object.freeze(Array.from(value)) as V) : value);
   return Object.freeze({
     ...options,

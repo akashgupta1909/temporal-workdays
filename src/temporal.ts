@@ -2,7 +2,7 @@
 
 import { epochDayFromIso } from './epoch.js';
 import { describe, typeError } from './errors.js';
-import type { DateInput, PlainDateLike } from './types.js';
+import type { DateInput, PlainDateLike, PlainDateTimeLike, ZonedDateTimeLike } from './types.js';
 
 /** The `Symbol.toStringTag` brand of a Temporal object, e.g. `'Temporal.PlainDate'`. */
 export function hasBrand(value: unknown, brand: string): boolean {
@@ -13,17 +13,40 @@ export function isPlainDate(value: unknown): value is PlainDateLike {
   return hasBrand(value, 'Temporal.PlainDate');
 }
 
+export function isPlainDateTime(value: unknown): value is PlainDateTimeLike {
+  return hasBrand(value, 'Temporal.PlainDateTime');
+}
+
+export function isZonedDateTime(value: unknown): value is ZonedDateTimeLike {
+  return hasBrand(value, 'Temporal.ZonedDateTime');
+}
+
 /** The calendar date of a PlainDate / PlainDateTime / ZonedDateTime input. */
 export function toPlainDate(date: DateInput): PlainDateLike {
   if (isPlainDate(date)) return date;
-  if (hasBrand(date, 'Temporal.PlainDateTime') || hasBrand(date, 'Temporal.ZonedDateTime')) {
+  if (isPlainDateTime(date) || isZonedDateTime(date)) {
     return date.toPlainDate();
   }
   throw typeError(`expected a Temporal.PlainDate, PlainDateTime or ZonedDateTime, got ${describe(date)}`);
 }
 
+interface Calendared<V> {
+  readonly calendarId: string;
+  withCalendar(calendar: 'iso8601'): V;
+}
+
+/** The same value in the ISO 8601 calendar (a no-op for ISO values). */
+export function toIso<V extends Calendared<V>>(value: V): V {
+  return value.calendarId === 'iso8601' ? value : value.withCalendar('iso8601');
+}
+
+/** `value` (ISO) converted back to `calendarId`. */
+export function withCalendarId<V extends { withCalendar(calendar: string): V }>(value: V, calendarId: string): V {
+  return calendarId === 'iso8601' ? value : value.withCalendar(calendarId);
+}
+
 export function toIsoDate(date: PlainDateLike): PlainDateLike {
-  return date.calendarId === 'iso8601' ? date : date.withCalendar('iso8601');
+  return toIso(date);
 }
 
 /** Days since 1970-01-01 of the date's ISO calendar date. */

@@ -21,6 +21,22 @@ for (const [name, lib] of [
   const zdt = Temporal.ZonedDateTime.from('2026-11-06T17:00[America/New_York]');
   assert.equal(lib.addWorkdays(zdt, 1).toString(), '2026-11-09T17:00:00-05:00[America/New_York]', `${name}: zoned`);
   assert.throws(() => lib.addWorkdays(d('2026-11-06'), 1.5), RangeError, `${name}: validation`);
+
+  const hours = {
+    hours: [
+      ['09:00', '12:00'],
+      ['13:00', '17:00'],
+    ],
+  };
+  const ny = Temporal.ZonedDateTime.from('2026-11-06T16:00[America/New_York]');
+  assert.equal(
+    lib.addWorkingTime(ny, { hours: 2 }, hours).toString(),
+    '2026-11-09T10:00:00-05:00[America/New_York]',
+    `${name}: addWorkingTime`,
+  );
+  const span = lib.workingTimeBetween(ny, Temporal.ZonedDateTime.from('2026-11-09T13:30[America/New_York]'), hours);
+  assert.equal(span.toString(), 'PT4H30M', `${name}: workingTimeBetween`);
+  assert.equal(lib.createWorkCalendar(hours).isWorkingTime(ny.with({ hour: 12, minute: 30 })), false, `${name}: lunch`);
 }
 assert.notEqual(esm.addWorkdays, undefined);
 console.log(`smoke ok on Node ${process.version}`);

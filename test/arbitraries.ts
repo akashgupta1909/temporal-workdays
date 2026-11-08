@@ -40,3 +40,9 @@ export function referenceIsWorkday(date: Temporal.PlainDate, c: Config): boolean
   if ((c.weekend as number[]).includes(date.dayOfWeek)) return false;
   return !c.holidays.includes(s);
 }
+
+/** Property-test run counts, scaled by FC_SCALE for occasional deep runs (FC_SCALE=20 npm test). */
+export function runs(base: number): { numRuns: number } {
+  const scale = Number(process.env['FC_SCALE'] ?? 1);
+  return { numRuns: Math.max(1, Math.round(base * (Number.isFinite(scale) && scale > 0 ? scale : 1))) };
+}

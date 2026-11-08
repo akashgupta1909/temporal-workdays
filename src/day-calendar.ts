@@ -22,7 +22,14 @@ export interface DayCalendar {
 
 const DATE_RE = /^([+-]\d{6}|\d{4})-(\d{2})-(\d{2})$/;
 const MONTH_DAY_RE = /^(?:--)?(\d{2})-(\d{2})$/;
-const WORKDAY_OPTION_KEYS: ReadonlySet<string> = new Set(['weekend', 'holidays', 'extraWorkdays']);
+/** Every option name any function accepts, so one options object can be shared by all of them. */
+export const OPTION_KEYS: ReadonlySet<string> = new Set([
+  'weekend',
+  'holidays',
+  'extraWorkdays',
+  'hours',
+  'specialHours',
+]);
 
 function checkDate(year: number, month: number, day: number, source: unknown): void {
   if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
@@ -84,9 +91,9 @@ export function checkOptionsObject(options: unknown): asserts options is object 
   }
 }
 
-export function compileDayCalendar(options: WorkdayOptions = {}, allowedKeys = WORKDAY_OPTION_KEYS): DayCalendar {
+export function compileDayCalendar(options: WorkdayOptions = {}): DayCalendar {
   checkOptionsObject(options);
-  checkOptionKeys(options, allowedKeys);
+  checkOptionKeys(options, OPTION_KEYS);
 
   const weekend = new Array<boolean>(8).fill(false);
   const weekendDays: unknown = options.weekend ?? [6, 7];

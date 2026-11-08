@@ -1,0 +1,16 @@
+{
+  // Type-checks a consumer of the *built* package (dist/*.d.ts, resolved through the
+  // package's own "exports") against TypeScript's built-in Temporal types — no polyfill.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ESNext"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "types": []
+  },
+  "files": ["native-types.ts"]
+}
