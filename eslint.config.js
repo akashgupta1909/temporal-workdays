@@ -1,0 +1,41 @@
+// @ts-check
+import eslint from '@eslint/js';
+import prettier from 'eslint-config-prettier';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  { ignores: ['dist/', 'coverage/', 'node_modules/'] },
+  eslint.configs.recommended,
+  tseslint.configs.strictTypeChecked,
+  tseslint.configs.stylisticTypeChecked,
+  {
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
+      '@typescript-eslint/consistent-type-exports': 'error',
+      '@typescript-eslint/explicit-module-boundary-types': 'error',
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      'no-console': 'error',
+      'prefer-const': 'error',
+      curly: ['error', 'multi-line'],
+    },
+  },
+  {
+    files: ['test/**'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: { globals: { console: 'readonly', process: 'readonly' } },
+  },
+  prettier,
+);

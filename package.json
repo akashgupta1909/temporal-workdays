@@ -54,20 +54,37 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:smoke": "node test/smoke/smoke.mjs",
     "typecheck": "tsc",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "size": "size-limit",
     "lint:pkg": "publint && attw --pack .",
-    "check": "npm run typecheck && npm test && npm run build && npm run lint:pkg",
-    "prepublishOnly": "npm run check",
-    "test:smoke": "node test/smoke/smoke.mjs"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && npm run lint:pkg && npm run size && npm run test:smoke",
+    "prepublishOnly": "npm run check"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
+    "@eslint/js": "^10.0.1",
+    "@size-limit/preset-small-lib": "^14.3.0",
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^5.1.0",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "fast-check": "^4.10.2",
+    "prettier": "^3.9.10",
     "publint": "^0.3.25",
+    "size-limit": "^14.3.0",
     "temporal-polyfill": "^1.0.8",
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
   }
 }

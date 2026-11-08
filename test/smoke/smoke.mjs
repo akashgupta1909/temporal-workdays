@@ -9,7 +9,10 @@ import { createRequire } from 'node:module';
 const cjs = createRequire(import.meta.url)('temporal-workdays');
 const d = (s) => Temporal.PlainDate.from(s);
 
-for (const [name, lib] of [['esm', esm], ['cjs', cjs]]) {
+for (const [name, lib] of [
+  ['esm', esm],
+  ['cjs', cjs],
+]) {
   assert.equal(lib.addWorkdays(d('2026-11-06'), 1).toString(), '2026-11-09', `${name}: addWorkdays`);
   assert.equal(lib.workdaysBetween(d('2026-11-02'), d('2026-11-09')), 5, `${name}: workdaysBetween`);
   assert.equal(lib.isWorkday(d('2026-11-07')), false, `${name}: isWorkday`);

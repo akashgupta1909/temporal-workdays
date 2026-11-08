@@ -6,13 +6,19 @@
     "moduleResolution": "NodeNext",
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": false,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "declaration": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": []
+    "types": ["node"]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "*.config.ts", "eslint.config.js"]
 }

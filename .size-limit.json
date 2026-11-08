@@ -1,0 +1,13 @@
+[
+  {
+    "name": "full library (ESM, min+brotli)",
+    "path": "dist/index.js",
+    "limit": "3 kB"
+  },
+  {
+    "name": "addWorkdays only (tree-shaken)",
+    "path": "dist/index.js",
+    "import": "{ addWorkdays }",
+    "limit": "2 kB"
+  }
+]

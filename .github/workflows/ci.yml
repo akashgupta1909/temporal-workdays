@@ -14,8 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Typecheck, unit tests, build and package lint on every Node version the
-  # dev toolchain supports (vitest and tsup require Node 22+).
+  # Typecheck, lint, format, tests with 100% coverage, build, package lint, size
+  # budget and smoke test, on every Node version the dev toolchain supports
+  # (vitest and tsup require Node 22+).
   check:
     name: check (node ${{ matrix.node }})
     runs-on: ubuntu-latest
@@ -31,7 +32,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm run test:smoke
 
   # The published package claims "engines": { "node": ">=18" }. Build once with a
   # current Node, then run the dependency-free smoke test of dist/ on older Nodes.

@@ -191,6 +191,7 @@ describe('workdaysBetween', () => {
 
   it('is negative when end is before start', () => {
     expect(workdaysBetween(d('2024-01-08'), d('2024-01-01'))).toBe(-5);
+    expect(workdaysBetween(d('2024-01-07'), d('2024-01-06'))).toBe(0); // +0, not -0
   });
 
   it('counts a full year', () => {
