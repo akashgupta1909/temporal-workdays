@@ -193,6 +193,15 @@ import 'temporal-polyfill/global'; // installs a global Temporal
 import { Temporal } from 'temporal-polyfill';
 ```
 
+`temporal-polyfill` is ESM-only. With `require()` on Node 18 or Node 20 before 20.19, which can't `require()` ES
+modules, use [`@js-temporal/polyfill`](https://www.npmjs.com/package/@js-temporal/polyfill) instead (also tested with
+this package), or load `temporal-polyfill` with `await import('temporal-polyfill')`:
+
+```js
+const { Temporal } = require('@js-temporal/polyfill');
+const { addWorkdays } = require('temporal-workdays');
+```
+
 Non-ISO calendars (`hebrew`, `japanese`, …) work; weekends and holidays are matched on the ISO date and results keep
 the input's calendar. Node.js 18+.
 

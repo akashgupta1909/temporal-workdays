@@ -45,5 +45,12 @@ export default tseslint.config(
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: { globals: { console: 'readonly', process: 'readonly' } },
   },
+  {
+    // CommonJS files use require() by definition.
+    files: ['**/*.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: { require: 'readonly', module: 'writable' } },
+    // A polyfill's Temporal intentionally shadows the (possibly missing) built-in one.
+    rules: { '@typescript-eslint/no-require-imports': 'off', 'no-redeclare': ['error', { builtinGlobals: false }] },
+  },
   prettier,
 );
