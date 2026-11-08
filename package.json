@@ -1,6 +1,6 @@
 {
   "name": "temporal-workdays",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Business days and business hours for the JavaScript Temporal API: add workdays, add working time (SLA), count both, with weekends, holidays, breaks, half days and date-holidays support. Exact across DST. Zero dependencies.",
   "keywords": [
     "business-days",
@@ -55,6 +55,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18"
   },

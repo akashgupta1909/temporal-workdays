@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2
+
+- `publishConfig.access` is set to `public`, so publishing never needs `--access public`.
+- README: badges for version, CI, bundle size, types and license.
+
+## 0.3.1
+
+- README: how to use the package with `require()` on Node 18 and Node 20 before 20.19, where `temporal-polyfill`
+  (ESM-only) can't be required. `@js-temporal/polyfill` is now tested in CI for that case.
+
 ## 0.3.0
 
 ### Added

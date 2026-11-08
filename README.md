@@ -1,5 +1,11 @@
 # temporal-workdays
 
+[![npm version](https://img.shields.io/npm/v/temporal-workdays.svg)](https://www.npmjs.com/package/temporal-workdays)
+[![CI](https://github.com/akashgupta1909/temporal-workdays/actions/workflows/ci.yml/badge.svg)](https://github.com/akashgupta1909/temporal-workdays/actions/workflows/ci.yml)
+[![bundle size](https://img.shields.io/bundlejs/size/temporal-workdays)](https://bundlejs.com/?q=temporal-workdays)
+[![types](https://img.shields.io/npm/types/temporal-workdays.svg)](https://www.npmjs.com/package/temporal-workdays)
+[![license](https://img.shields.io/npm/l/temporal-workdays.svg)](LICENSE)
+
 Business days and business hours for the JavaScript [Temporal API](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal).
 
 - **Workdays** — add/subtract workdays, count them, list them; custom weekends, holidays and make-up days.
