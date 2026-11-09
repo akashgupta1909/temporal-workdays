@@ -18,8 +18,10 @@ Business days and business hours for the JavaScript [Temporal API](https://devel
 npm install temporal-workdays
 ```
 
-**Coming from `moment-business-days`?** Every feature has an equivalent, checked against it in the test suite — see
-the [migration guide](#migrating-from-moment-business-days).
+**Coming from another library?** Migration guides for
+[moment-business-days](#migrating-from-moment-business-days),
+[luxon-business-days](#migrating-from-luxon-business-days) and [date-fns](#coming-from-date-fns), each checked against
+the real library in the test suite.
 
 ## Workdays
 
@@ -475,6 +477,84 @@ momentWeeks.map((week) => week.length); // → [7, 7, 7, 7, 0]
   time zone.
 - Typed `PlainDate` / `PlainDateTime` / `ZonedDateTime` support, make-up workdays (`extraWorkdays`), yearly holidays
   (`'12-25'`), several calendars side by side, and no global state.
+
+## Migrating from luxon-business-days
+
+Each translation below is checked against the real `luxon-business-days` in
+[`test/luxon-business-days.test.ts`](test/luxon-business-days.test.ts).
+
+**Its default holidays.** `luxon-business-days` skips seven US shipping holidays unless you configure others. These
+rules give exactly the same holidays (tested for every day from 1900 to 2200):
+
+```ts
+import { DateTime } from 'luxon-business-days';
+import { addWorkdays, createWorkCalendar } from 'temporal-workdays';
+
+const shippingHolidays = [
+  '01-01',
+  { easter: 0 },
+  { month: 5, dayOfWeek: 1, week: -1 }, // Memorial Day
+  '07-04',
+  { month: 9, dayOfWeek: 1, week: 1 }, // Labor Day
+  { month: 11, dayOfWeek: 4, week: 4 }, // Thanksgiving
+  '12-25',
+];
+const calendar = createWorkCalendar({ holidays: shippingHolidays });
+
+DateTime.fromISO('2026-11-25').plusBusiness({ days: 1 }).toISODate(); // → '2026-11-27'
+calendar.addWorkdays(Temporal.PlainDate.from('2026-11-25'), 1).toString(); // → '2026-11-27'
+```
+
+| luxon-business-days                                            | temporal-workdays                                                                    |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `dt.setupBusiness({ businessDays, holidayMatchers })` (global) | `createWorkCalendar({ weekend, holidays })` (no global state)                        |
+| `businessDays: [1, 2, 3, 4, 5]`                                | `weekend: [6, 7]`, the other days; both number Monday as 1                           |
+| `dt.plusBusiness({ days: n })` / `minusBusiness`               | `addWorkdays(d, n)` / `subtractWorkdays(d, n)`                                       |
+| `dt.isBusinessDay()`                                           | `!isWeekend(d)`: it only checks the weekday, not holidays                            |
+| `dt.isBusinessDay() && !dt.isHoliday()`                        | `isWorkday(d)`                                                                       |
+| `dt.isHoliday()`                                               | `isHoliday(d)`                                                                       |
+| `availableHolidayMatchers.isMLKDay`, `isColumbusDay`, …        | rules: `{ month: 1, dayOfWeek: 1, week: 3 }`, `{ month: 10, dayOfWeek: 1, week: 2 }` |
+| a custom holiday matcher `(dt) => boolean`                     | `holidays: (date) => boolean` (receives a `Temporal.PlainDate`)                      |
+| no equivalent                                                  | `workdaysBetween`, `workdaysInMonth`, working hours, observed holidays               |
+
+## Coming from date-fns
+
+date-fns' business-day functions only know Monday–Friday. Each translation is checked against the real date-fns in
+[`test/date-fns.test.ts`](test/date-fns.test.ts).
+
+```ts
+import { addBusinessDays, differenceInBusinessDays, format } from 'date-fns';
+import { addWorkdays, workdaysBetween } from 'temporal-workdays';
+
+format(addBusinessDays(new Date(2026, 10, 6), 3), 'yyyy-MM-dd'); // → '2026-11-11'
+addWorkdays(Temporal.PlainDate.from('2026-11-06'), 3).toString(); // → '2026-11-11'
+
+differenceInBusinessDays(new Date(2026, 10, 16), new Date(2026, 10, 9)); // → 5
+workdaysBetween(Temporal.PlainDate.from('2026-11-09'), Temporal.PlainDate.from('2026-11-16')); // → 5
+```
+
+| date-fns                                   | temporal-workdays                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `addBusinessDays(date, n)`                 | `addWorkdays(d, n)`: always the same result                                  |
+| `isWeekend(date)`                          | `isWeekend(d)`                                                               |
+| `differenceInBusinessDays(later, earlier)` | `workdaysBetween(earlier, later)` when both are workdays; exactly, see below |
+
+`differenceInBusinessDays` counts `[earlier, later)` going forward but `(later, earlier]` going backward. When an end
+can be a weekend day and you need its exact numbers:
+
+```ts
+import { differenceInBusinessDays } from 'date-fns';
+import { workdaysBetween } from 'temporal-workdays';
+
+const saturday = Temporal.PlainDate.from('2026-11-07');
+const monday = Temporal.PlainDate.from('2026-11-09');
+
+differenceInBusinessDays(new Date(2026, 10, 9), new Date(2026, 10, 7)); // → 0
+workdaysBetween(saturday.subtract({ days: 1 }), monday.subtract({ days: 1 })); // → 0
+```
+
+Going backward (`later` before `earlier`), `workdaysBetween(earlier, later)` already matches it exactly. What you gain:
+holidays, other weekends, working hours, and `Temporal` types instead of `Date`.
 
 ## License
 
