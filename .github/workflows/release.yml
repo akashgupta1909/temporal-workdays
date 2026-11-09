@@ -29,16 +29,35 @@ jobs:
       - run: npm ci
       - name: Check that the tag matches package.json
         run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      # Each step below is skipped when it is already done, so "Re-run failed jobs" is always safe.
       # prepublishOnly runs the full check (types, lint, tests, build, package lint, size, smoke).
       - name: Publish to npm with provenance
-        run: npm publish --provenance --access public
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "temporal-workdays@$version" version >/dev/null 2>&1; then
+            echo "temporal-workdays@$version is already on npm"
+          else
+            npm publish --provenance --access public
+          fi
       # JSR side, once: create the @akashgupta1909 scope on jsr.io, create the package and link this
       # repository in its settings. Publishing then uses GitHub's OIDC token too.
       - name: Publish to JSR
-        run: npx jsr publish
+        run: |
+          version=$(node -p "require('./jsr.json').version")
+          if curl -sf https://jsr.io/@akashgupta1909/temporal-workdays/meta.json |
+            node -e "process.exit(JSON.parse(require('fs').readFileSync(0, 'utf8')).versions[process.argv[1]] ? 0 : 1)" "$version"; then
+            echo "@akashgupta1909/temporal-workdays@$version is already on JSR"
+          else
+            npm run build
+            npx jsr publish
+          fi
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          node scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md --verify-tag
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists"
+          else
+            node scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md --verify-tag
+          fi

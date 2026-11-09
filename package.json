@@ -1,6 +1,6 @@
 {
   "name": "temporal-workdays",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Add business days and business hours with the Temporal API: workdays, working hours, SLA deadlines, holidays (observed, Easter, nth weekday), overnight shifts, exact across DST. A moment-business-days / luxon-business-days alternative with zero dependencies.",
   "keywords": [
     "business-days",

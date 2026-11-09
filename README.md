@@ -21,6 +21,9 @@ It has no dependencies and works with native Temporal or a polyfill. The workday
 npm install temporal-workdays
 ```
 
+It is also on [JSR](https://jsr.io/@akashgupta1909/temporal-workdays) for Deno and other runtimes:
+`deno add jsr:@akashgupta1909/temporal-workdays`.
+
 Documentation, recipes and a playground: [akashgupta1909.github.io/temporal-workdays](https://akashgupta1909.github.io/temporal-workdays/).
 Switching from another library? See the guides for [moment-business-days](#migrating-from-moment-business-days),
 [luxon-business-days](#migrating-from-luxon-business-days) and [date-fns](#coming-from-date-fns).

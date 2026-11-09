@@ -4,6 +4,13 @@
 npm install temporal-workdays
 ```
 
+With Deno, or any runtime that uses [JSR](https://jsr.io/@akashgupta1909/temporal-workdays):
+
+```sh
+deno add jsr:@akashgupta1909/temporal-workdays
+npx jsr add @akashgupta1909/temporal-workdays # npm, pnpm, Yarn or Bun
+```
+
 You also need a Temporal implementation. Firefox 139+, Chrome 144+ and Node.js 26+ have one built in. Elsewhere, add
 a polyfill:
 

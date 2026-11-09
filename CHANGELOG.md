@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- First release on JSR. The README and the docs show how to install it from there.
+- The release workflow skips steps that are already done, so a failed release can be run again.
+
 ## 0.4.0
 
 ### Added
