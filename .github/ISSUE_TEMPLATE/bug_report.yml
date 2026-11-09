@@ -1,0 +1,36 @@
+name: Bug report
+description: A result that is wrong, an error that shouldn't happen, or a crash
+labels: [bug]
+body:
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code that shows the problem, including the options you pass.
+      render: ts
+      placeholder: |
+        import { addWorkdays } from 'temporal-workdays';
+        addWorkdays(Temporal.PlainDate.from('2026-11-06'), 1, { holidays: ['2026-11-09'] }).toString();
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result, and why
+      description: What you expected, and the rule or source that says so (e.g. a government holiday calendar).
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: temporal-workdays version, Temporal implementation (native / temporal-polyfill / @js-temporal/polyfill) and runtime.
+      placeholder: temporal-workdays 0.4.0, temporal-polyfill 1.0.8, Node 24
+    validations:
+      required: true

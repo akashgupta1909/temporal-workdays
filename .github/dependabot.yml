@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Dev dependencies only: the published package has no dependencies.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7 # don't adopt brand-new releases: most hijacked versions are caught within days
+    groups:
+      dev-dependencies:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

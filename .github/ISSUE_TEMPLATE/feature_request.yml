@@ -1,0 +1,21 @@
+name: Feature request
+description: Something the library should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and where does the library fall short today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: How you'd like to write it. Rough is fine.
+      render: ts
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you use now

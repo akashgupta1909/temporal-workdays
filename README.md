@@ -5,6 +5,7 @@
 [![bundle size](https://img.shields.io/bundlejs/size/temporal-workdays)](https://bundlejs.com/?q=temporal-workdays)
 [![types](https://img.shields.io/npm/types/temporal-workdays.svg)](https://www.npmjs.com/package/temporal-workdays)
 [![license](https://img.shields.io/npm/l/temporal-workdays.svg)](LICENSE)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/akashgupta1909/temporal-workdays/badge)](https://scorecard.dev/viewer/?uri=github.com/akashgupta1909/temporal-workdays)
 
 Business days and business hours for the JavaScript [Temporal API](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal).
 

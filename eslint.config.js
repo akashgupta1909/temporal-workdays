@@ -46,6 +46,12 @@ export default tseslint.config(
     languageOptions: { globals: { console: 'readonly', process: 'readonly' } },
   },
   {
+    // Command-line scripts print and use Node globals.
+    files: ['scripts/**', 'bench/**'],
+    languageOptions: { globals: { console: 'readonly', process: 'readonly', URL: 'readonly' } },
+    rules: { 'no-console': 'off' },
+  },
+  {
     // CommonJS files use require() by definition.
     files: ['**/*.cjs'],
     languageOptions: { sourceType: 'commonjs', globals: { require: 'readonly', module: 'writable' } },
