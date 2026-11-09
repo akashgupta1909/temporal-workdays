@@ -30,25 +30,24 @@ describe('fromDateHolidays', () => {
     expect(addWorkdays(d('2026-11-25'), 1, us).toString()).toBe('2026-11-27');
   });
 
-  it('gives the same answers whatever the machine time zone is', () => {
-    // date-holidays' own isHoliday() gets Thanksgiving wrong east of the US; the adapter must not.
+  // Changing process.env.TZ only affects Date in a process's main thread. Some runners (Stryker's
+  // worker threads) can't switch zones, so check that first rather than pass or fail for the wrong reason.
+  const rawThanksgiving = (tz: string): boolean => {
+    process.env['TZ'] = tz;
+    return Boolean(new Holidays('US').isHoliday(new Date(2026, 10, 26)));
+  };
+  const canSwitchTimeZone = rawThanksgiving('Asia/Kolkata') !== rawThanksgiving('America/Los_Angeles');
+
+  it.runIf(canSwitchTimeZone)('gives the same answers whatever the machine time zone is', () => {
+    // date-holidays' own isHoliday() gets Thanksgiving wrong east of the US (see the check above); the adapter must not.
     const answers = (): boolean[] => {
       const us = fromDateHolidays(new Holidays('US'));
       return ['2026-11-26', '2026-12-25', '2026-01-01', '2026-12-24'].map((s) => isWorkday(d(s), us));
     };
-    const results = ['UTC', 'Asia/Kolkata', 'Pacific/Kiritimati', 'Pacific/Pago_Pago', 'America/Los_Angeles'].map(
-      (tz) => {
-        process.env['TZ'] = tz;
-        return answers();
-      },
-    );
-    for (const r of results) expect(r).toEqual([false, false, false, true]);
-    // Harness check: switching TZ really changes Date handling (date-holidays' own isHoliday varies).
-    const raw = ['Asia/Kolkata', 'America/Los_Angeles'].map((tz) => {
+    for (const tz of ['UTC', 'Asia/Kolkata', 'Pacific/Kiritimati', 'Pacific/Pago_Pago', 'America/Los_Angeles']) {
       process.env['TZ'] = tz;
-      return Boolean(new Holidays('US').isHoliday(new Date(2026, 10, 26)));
-    });
-    expect(raw).toEqual([false, true]);
+      expect(answers(), tz).toEqual([false, false, false, true]);
+    }
   });
 
   it('selects holiday types', () => {

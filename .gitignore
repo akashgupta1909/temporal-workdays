@@ -3,3 +3,7 @@ dist
 coverage
 *.tgz
 .DS_Store
+reports
+.stryker-tmp
+docs/.vitepress/dist
+docs/.vitepress/cache

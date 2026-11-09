@@ -39,16 +39,10 @@ const RULE_KEYS: ReadonlySet<string> = new Set([
 ]);
 const NO_YEAR_LIMIT = { from: -Infinity, to: Infinity } as const;
 
-function checkDate(year: number, month: number, day: number, source: unknown): void {
-  if (
-    !Number.isInteger(month) ||
-    !Number.isInteger(day) ||
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > daysInMonth(year, month)
-  ) {
-    throw rangeError(`invalid date ${describe(source)}`);
+/** `month` and `day` are integers here; `what` names the input in the error. */
+function checkDate(year: number, month: number, day: number, what: string): void {
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
+    throw rangeError(`invalid date ${what}`);
   }
 }
 
@@ -58,7 +52,7 @@ export function parseDate(value: unknown): number {
     const m = DATE_RE.exec(value);
     if (!m) throw rangeError(`expected a "YYYY-MM-DD" date, got ${describe(value)}`);
     const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
-    checkDate(year, month, day, value);
+    checkDate(year, month, day, describe(value));
     return epochDayFromIso(year, month, day);
   }
   if (isPlainDate(value)) return epochDayOf(value);
@@ -127,7 +121,8 @@ function compileRuleObject(rule: Record<string, unknown>): CompiledRule {
     case 'day': {
       const month = integerField(rule, 'month', 1, 12);
       const day = integerField(rule, 'day', 1, 31);
-      checkDate(2000, month, day, rule); // a leap year, so that Feb 29 is accepted
+      // 2000 is a leap year, so that Feb 29 is accepted.
+      checkDate(2000, month, day, `in holiday rule { month: ${month}, day: ${day} }`);
       return { kind: 'fixed', month, day, ...common };
     }
   }
@@ -140,9 +135,10 @@ export function compileHoliday(entry: HolidayInput): CompiledRule {
     const md = MONTH_DAY_RE.exec(entry);
     if (md) {
       const [month, day] = [Number(md[1]), Number(md[2])];
-      checkDate(2000, month, day, entry);
+      checkDate(2000, month, day, describe(entry));
       return { kind: 'fixed', month, day, ...plain };
     }
+    if (!DATE_RE.test(entry)) throw rangeError(`expected a "YYYY-MM-DD" or "MM-DD" date, got ${describe(entry)}`);
     return { kind: 'date', epochDay: parseDate(entry), ...plain };
   }
   if (isPlainDate(entry)) return { kind: 'date', epochDay: epochDayOf(entry), ...plain };

@@ -17,24 +17,26 @@ Node.js 22+ is needed for development (the published package supports Node 18+).
 
 Correctness is the point of this library, so changes come with tests of the same kind:
 
-- **Reference models** — property tests (fast-check) compare the real implementation with deliberately naive ones:
-  a day-by-day workday walk, a minute-by-minute working-time walk, and a Temporal-only oracle around real DST
-  transitions. A new behaviour should get a property, not just examples.
-- **Real-world oracles** — holiday rules are checked against `date-holidays` data, and the migration guides against
-  the real `moment-business-days`, `luxon-business-days` and `date-fns`.
-- **Executable docs** — every `ts` code block in the README runs in the test suite, and each `expr; // → value` line is
-  asserted.
-- **Coverage** is held at 100%. Unreachable branches are removed rather than excluded.
+- Property tests (fast-check) compare the real implementation with deliberately simple reference models: a day by
+  day workday walk, a minute by minute working time walk, and an oracle that uses only Temporal around real DST
+  transitions. New behaviour should come with a property test, not only examples.
+- Holiday rules are checked against `date-holidays` data, and the migration guides against the real
+  `moment-business-days`, `luxon-business-days` and `date-fns`.
+- Every `ts` code block in the README and in `docs/` runs in the test suite, and each `expression; // → value` line is
+  asserted. Use `typescript` as the code block language for code that can't run there.
+- Coverage is kept at 100%. Code that can't be reached is removed rather than excluded.
 
 Useful commands:
 
-| Command                 | What it does                                        |
-| ----------------------- | --------------------------------------------------- |
-| `npm test`              | tests with coverage                                 |
-| `FC_SCALE=10 npm test`  | 10× more property-test cases (run before a release) |
-| `npm run test:watch`    | watch mode                                          |
-| `npm run test:mutation` | mutation testing (Stryker); slow                    |
-| `npm run bench`         | benchmark against moment-business-days              |
+| Command                 | What it does                                                   |
+| ----------------------- | -------------------------------------------------------------- |
+| `npm test`              | tests with coverage                                            |
+| `FC_SCALE=10 npm test`  | 10× more property-test cases (run before a release)            |
+| `npm run test:watch`    | watch mode                                                     |
+| `npm run test:mutation` | mutation testing with Stryker (slow)                           |
+| `npm run bench`         | benchmark against moment-business-days and luxon-business-days |
+| `npm run test:runtimes` | the tests on Deno, Bun, browsers and Cloudflare Workers        |
+| `npm run docs:dev`      | the docs site at localhost:5173                                |
 
 ## Pull requests
 

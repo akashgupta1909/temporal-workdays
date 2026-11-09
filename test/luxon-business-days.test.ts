@@ -40,7 +40,7 @@ describe('migration from luxon-business-days', () => {
         expect.fail(`holiday mismatch on ${d.toString()}`);
       }
     }
-  });
+  }, 60_000); // exhaustive: about 110,000 days through luxon
 
   it('dt.plusBusiness({ days }) / minusBusiness → addWorkdays / subtractWorkdays', () => {
     fc.assert(

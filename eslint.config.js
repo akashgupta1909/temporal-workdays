@@ -4,7 +4,18 @@ import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'coverage/', 'node_modules/', 'test/consumer/'] },
+  {
+    ignores: [
+      'dist/',
+      'coverage/',
+      'node_modules/',
+      'test/consumer/',
+      'reports/',
+      '.stryker-tmp/',
+      'docs/.vitepress/dist/',
+      'docs/.vitepress/cache/',
+    ],
+  },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
@@ -46,9 +57,14 @@ export default tseslint.config(
     languageOptions: { globals: { console: 'readonly', process: 'readonly' } },
   },
   {
+    // VitePress config and theme are built by VitePress, outside the package's tsconfig.
+    files: ['docs/**/*.ts', 'docs/**/*.mts'],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
     // Command-line scripts print and use Node globals.
-    files: ['scripts/**', 'bench/**'],
-    languageOptions: { globals: { console: 'readonly', process: 'readonly', URL: 'readonly' } },
+    files: ['scripts/**', 'bench/**', 'test/runtimes/**'],
+    languageOptions: { globals: { console: 'readonly', process: 'readonly', URL: 'readonly', Response: 'readonly' } },
     rules: { 'no-console': 'off' },
   },
   {

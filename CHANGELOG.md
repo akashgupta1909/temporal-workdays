@@ -1,23 +1,36 @@
 # Changelog
 
-## 0.4.0 (unreleased)
+## 0.4.0
 
 ### Added
 
-- **Holiday rules**: `{ month, day }`, nth / last weekday of a month (`{ month: 11, dayOfWeek: 4, week: 4 }`),
-  Easter-relative (`{ easter: -2 }`, Western or `orthodox: true`), one-off `{ date }`, with `offset`, `from` / `to`
-  years and `name`. Verified against `date-holidays` (US federal and England & Wales 1990–2060, Easter 1900–2100).
-- **Observed holidays**: `observed: 'nearest' | 'next' | 'previous' | 'none'` for the calendar or per rule, including
-  substitutes that cross a year boundary and skip days already taken.
-- **Overnight shifts**: ranges whose end is before the start (`['22:00', '06:00']`) run into the next morning and
-  belong to the day they start; exact across DST changes for `ZonedDateTime`.
-- **SLA pauses**: `workingTimeBetween(start, end, options, { pauses })` (and on calendars) leaves paused periods out.
+- Holiday rules: a date every year (`{ month, day }`), the nth or last weekday of a month
+  (`{ month: 11, dayOfWeek: 4, week: 4 }`), days relative to Western or Orthodox Easter (`{ easter: -2 }`) and single
+  dates (`{ date }`). Every rule accepts `offset`, `from` and `to` years, and `name`. Tested against `date-holidays`:
+  US federal and England and Wales holidays from 1990 to 2060, and Easter from 1900 to 2100.
+- Observed holidays: `observed: 'nearest' | 'next' | 'previous' | 'none'`, for the calendar or for one rule. A
+  substitute can cross into another year and skips days that are already holidays.
+- Overnight shifts: a range whose end is before its start (`['22:00', '06:00']`) runs into the next morning and
+  belongs to the day it starts. It stays exact across DST changes with `ZonedDateTime`.
+- Pauses for SLAs: `workingTimeBetween(start, end, options, { pauses })`, or `calendar.workingTimeBetween(start, end,
+  { pauses })`, leaves the paused periods out.
+- A documentation site with guides, recipes (SLA deadlines, payroll, delivery estimates) and a playground:
+  https://akashgupta1909.github.io/temporal-workdays/
+- The package is also published to JSR as `@akashgupta1909/temporal-workdays`.
+- npm releases are published from GitHub Actions with provenance.
 
 ### Changed
 
-- A range like `['17:00', '09:00']` was an error and is now an overnight range. Empty ranges and ranges starting at
-  `24:00` are still rejected.
-- Bundle size: workday functions ≈ 3.2 kB (were 1.8 kB) because they now include the holiday-rule engine.
+- A range like `['17:00', '09:00']` used to be an error and is now an overnight range. Empty ranges and ranges that
+  start at `24:00` are still rejected.
+- The workday functions are now about 3.2 kB (they were 1.8 kB) because they include the holiday rules.
+
+### Testing
+
+- CI runs the package on Deno, Bun, Chromium, Firefox, WebKit and Cloudflare Workers, in addition to Node 18 to 26.
+- Mutation testing with Stryker (`npm run test:mutation`).
+- The migration guides for `luxon-business-days` and `date-fns` are checked against those libraries, and every code
+  example in the docs runs in the test suite.
 
 ## 0.3.2
 
@@ -61,7 +74,7 @@
 
 - `workdaysBetween` returned `-0` instead of `0` for empty backward ranges.
 - `WorkCalendar#subtractWorkdays` accepted numeric strings such as `'2'`.
-- The README's `date-holidays` example gave wrong answers outside the US time zones; replaced by `fromDateHolidays`.
+- The README's `date-holidays` example gave wrong answers outside the US time zones. It was replaced by `fromDateHolidays`.
 
 ## 0.1.0
 

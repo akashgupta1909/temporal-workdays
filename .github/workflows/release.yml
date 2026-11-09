@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v0.4.0 (matching package.json) to publish to npm and create a GitHub Release.
+# Push a tag like v0.4.0 (matching package.json) to publish to npm and JSR and create a GitHub Release.
 # npm side, once: npmjs.com → package → Settings → Trusted publishing → GitHub Actions,
 # repository akashgupta1909/temporal-workdays, workflow file release.yml. No npm token is stored.
 on:
@@ -32,6 +32,10 @@ jobs:
       # prepublishOnly runs the full check (types, lint, tests, build, package lint, size, smoke).
       - name: Publish to npm with provenance
         run: npm publish --provenance --access public
+      # JSR side, once: create the @akashgupta1909 scope on jsr.io, create the package and link this
+      # repository in its settings. Publishing then uses GitHub's OIDC token too.
+      - name: Publish to JSR
+        run: npx jsr publish
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
