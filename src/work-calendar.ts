@@ -16,6 +16,7 @@ import type {
   DurationOf,
   TimeRangeText,
   WorkdayOptions,
+  WorkingTimeBetweenOptions,
   WorkingTimeOptions,
 } from './types.js';
 import {
@@ -61,7 +62,11 @@ export interface WorkTimeCalendar extends WorkCalendar {
   isWorkingTime(dateTime: DateTimeInput): boolean;
   addWorkingTime<T extends DateTimeInput>(dateTime: T, duration: DurationInput): T;
   subtractWorkingTime<T extends DateTimeInput>(dateTime: T, duration: DurationInput): T;
-  workingTimeBetween<T extends DateTimeInput>(start: T, end: NoInfer<T>): DurationOf<T>;
+  workingTimeBetween<T extends DateTimeInput>(
+    start: T,
+    end: NoInfer<T>,
+    options?: WorkingTimeBetweenOptions<NoInfer<T>>,
+  ): DurationOf<T>;
   rollForwardToWorkingTime<T extends DateTimeInput>(dateTime: T): T;
   rollBackwardToWorkingTime<T extends DateTimeInput>(dateTime: T): T;
   getWorkingHours(date: DateInput): readonly TimeRangeText[];
@@ -105,7 +110,7 @@ export function createWorkCalendar(options: WorkdayOptions | WorkingTimeOptions 
     isWorkingTime: (dateTime) => isWorkingTimeWith(hours, dateTime),
     addWorkingTime: (dateTime, duration) => addWorkingTimeWith(hours, dateTime, duration),
     subtractWorkingTime: (dateTime, duration) => subtractWorkingTimeWith(hours, dateTime, duration),
-    workingTimeBetween: (start, end) => workingTimeBetweenWith(hours, start, end),
+    workingTimeBetween: (start, end, options) => workingTimeBetweenWith(hours, start, end, options),
     rollForwardToWorkingTime: (dateTime) => rollForwardToWorkingTimeWith(hours, dateTime),
     rollBackwardToWorkingTime: (dateTime) => rollBackwardToWorkingTimeWith(hours, dateTime),
     getWorkingHours: (date) => getWorkingHoursWith(hours, date),

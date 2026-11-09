@@ -53,6 +53,19 @@ describe('working-time properties (vs. minute-by-minute reference)', () => {
     );
   });
 
+  it('workingTimeBetween leaves out pauses, even overlapping ones', () => {
+    const pause = fc.tuple(start, fc.nat({ max: 3000 })).map(([m, len]) => [m, m + len] as const);
+    fc.assert(
+      fc.property(hoursConfig, start, start, fc.array(pause, { maxLength: 4 }), (c, a, b, pauses) => {
+        const d = workingTimeBetween(toDateTime(a), toDateTime(b), toHoursOptions(c), {
+          pauses: pauses.map(([ps, pe]) => [toDateTime(ps), toDateTime(pe)] as const),
+        });
+        expect(d.total('minutes')).toBe(new ReferenceModel(c).between(a, b, pauses));
+      }),
+      params,
+    );
+  });
+
   it('workingTimeBetween inverts addWorkingTime', () => {
     fc.assert(
       fc.property(hoursConfig, start, fc.nat({ max: 4320 }), (c, m, n) => {
@@ -81,16 +94,14 @@ describe('working-time properties (vs. minute-by-minute reference)', () => {
       fc.property(hoursConfig, fc.nat({ max: 120 }), (c, day) => {
         const date = Temporal.PlainDate.from('2020-01-01').add({ days: day });
         const hours = getWorkingHours(date, toHoursOptions(c));
+        const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+        // An end at or before the start is an overnight range that ends the next morning.
         const total = hours.reduce(
-          (sum, [s, e]) =>
-            sum +
-            Temporal.PlainTime.from(s)
-              .until(e === '24:00' ? '23:59:59.999999999' : e)
-              .total('minutes'),
+          (sum, [s, e]) => sum + (minutes(e) > minutes(s) ? 0 : 1440) + minutes(e) - minutes(s),
           0,
         );
         const expected = new ReferenceModel(c).rangesOnDay(day).reduce((sum, [s, e]) => sum + e - s, 0);
-        expect(Math.round(total)).toBe(expected);
+        expect(total).toBe(expected);
       }),
       params,
     );

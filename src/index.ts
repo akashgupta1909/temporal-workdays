@@ -10,6 +10,9 @@ export type {
   DurationOf,
   HolidayInput,
   HolidayPredicate,
+  HolidayRule,
+  HolidayRuleOptions,
+  Observance,
   PlainDateLike,
   PlainDateTimeLike,
   PlainMonthDayLike,
@@ -22,6 +25,7 @@ export type {
   WeeklyHours,
   WorkdayOptions,
   WorkingHours,
+  WorkingTimeBetweenOptions,
   WorkingTimeOptions,
   ZonedDateTimeLike,
 } from './types.js';

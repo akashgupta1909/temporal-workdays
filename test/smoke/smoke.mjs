@@ -48,6 +48,21 @@ for (const [name, lib] of [
   assert.deepEqual(eve, [['09:00', '14:00']], `${name}: fromDateHolidays`);
 
   assert.equal(lib.workdaysInMonth(d('2026-11-10')).length, 21, `${name}: workdaysInMonth`);
+
+  const us = { observed: 'nearest', holidays: ['07-04', { month: 11, dayOfWeek: 4, week: 4 }, { easter: -2 }] };
+  assert.equal(lib.isHoliday(d('2026-07-03'), us), true, `${name}: observed holiday`);
+  assert.equal(lib.isHoliday(d('2026-11-26'), us), true, `${name}: nth weekday rule`);
+  assert.equal(lib.isHoliday(d('2026-04-03'), us), true, `${name}: easter rule`);
+  const nights = { hours: [['22:00', '06:00']] };
+  assert.equal(lib.isWorkingTime(Temporal.PlainDateTime.from('2026-11-07T03:00'), nights), true, `${name}: overnight`);
+  const pdt = (s) => Temporal.PlainDateTime.from(s);
+  const paused = lib.workingTimeBetween(
+    pdt('2026-11-09T09:00'),
+    pdt('2026-11-09T17:00'),
+    { hours: [['09:00', '17:00']] },
+    { pauses: [[pdt('2026-11-09T10:00'), pdt('2026-11-09T12:00')]] },
+  );
+  assert.equal(paused.toString(), 'PT6H', `${name}: pauses`);
   assert.equal(lib.workdayOfMonth(d('2026-11-10')), 7, `${name}: workdayOfMonth`);
   assert.deepEqual(
     lib.workdaysByWeek(d('2026-11-01'), d('2026-11-08')).map((w) => w.length),

@@ -7,7 +7,7 @@ import type { DayOfWeek, WorkingTimeOptions } from '../src/index.js';
 import { BASE, referenceIsWorkday, type Config, config } from './arbitraries.js';
 
 export const MINUTES_PER_DAY = 1440;
-type Range = readonly [number, number]; // minutes of day, [start, end)
+type Range = readonly [number, number]; // minutes of day, [start, end); end > 1440 for overnight ranges
 
 export interface HoursConfig extends Config {
   weekly: Record<DayOfWeek, Range[]>;
@@ -16,13 +16,24 @@ export interface HoursConfig extends Config {
 
 const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
-/** Sorted, disjoint, non-touching ranges from random cut points. */
+/**
+ * Sorted, disjoint, non-touching ranges from random cut points. With an odd number of cuts the
+ * last one can start an overnight range that ends the next morning.
+ */
 const dayRanges: fc.Arbitrary<Range[]> = fc
-  .uniqueArray(fc.integer({ min: 0, max: MINUTES_PER_DAY }), { maxLength: 6 })
-  .map((cuts) => {
+  .tuple(
+    fc.uniqueArray(fc.integer({ min: 0, max: MINUTES_PER_DAY }), { maxLength: 7 }),
+    fc.integer({ min: 1, max: 1439 }),
+  )
+  .map(([cuts, nextMorning]) => {
     const sorted = [...cuts].sort((a, b) => a - b);
     const ranges: Range[] = [];
     for (let i = 0; i + 1 < sorted.length; i += 2) ranges.push([sorted[i]!, sorted[i + 1]!]);
+    const unpaired = sorted.length % 2 === 1 ? sorted.at(-1)! : undefined;
+    // Written as text, an overnight range's end is before its start, so it is shorter than a day.
+    if (unpaired !== undefined && unpaired < MINUTES_PER_DAY && nextMorning < unpaired) {
+      ranges.push([unpaired, MINUTES_PER_DAY + nextMorning]);
+    }
     return ranges;
   });
 
@@ -45,7 +56,8 @@ export const hoursConfig: fc.Arbitrary<HoursConfig> = fc
   .filter((c) => ([1, 2, 3, 4, 5, 6, 7] as const).some((d) => !c.weekend.includes(d) && c.weekly[d].length > 0));
 
 export function toHoursOptions(c: HoursConfig): WorkingTimeOptions {
-  const toText = (ranges: Range[]) => ranges.map(([s, e]) => [fmt(s), fmt(e)] as const);
+  const toText = (ranges: Range[]) =>
+    ranges.map(([s, e]) => [fmt(s), fmt(e > MINUTES_PER_DAY ? e - MINUTES_PER_DAY : e)] as const);
   return {
     weekend: c.weekend,
     holidays: c.holidays,
@@ -80,7 +92,11 @@ export class ReferenceModel {
   isWorking(minute: number): boolean {
     const day = Math.floor(minute / MINUTES_PER_DAY);
     const mod = minute - day * MINUTES_PER_DAY;
-    return this.rangesOnDay(day).some(([s, e]) => mod >= s && mod < e);
+    // Today's ranges, or last night's overnight range running into this morning.
+    return (
+      this.rangesOnDay(day).some(([s, e]) => mod >= s && mod < e) ||
+      this.rangesOnDay(day - 1).some(([s, e]) => mod + MINUTES_PER_DAY >= s && mod + MINUTES_PER_DAY < e)
+    );
   }
 
   add(start: number, n: number): number {
@@ -92,10 +108,12 @@ export class ReferenceModel {
     return m;
   }
 
-  between(a: number, b: number): number {
-    if (b < a) return 0 - this.between(b, a); // 0 - x, not -x: avoids -0
+  between(a: number, b: number, pauses: readonly (readonly [number, number])[] = []): number {
+    if (b < a) return 0 - this.between(b, a, pauses); // 0 - x, not -x: avoids -0
     let count = 0;
-    for (let m = a; m < b; m++) if (this.isWorking(m)) count++;
+    for (let m = a; m < b; m++) {
+      if (this.isWorking(m) && !pauses.some(([ps, pe]) => m >= ps && m < pe)) count++;
+    }
     return count;
   }
 

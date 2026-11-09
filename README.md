@@ -12,7 +12,7 @@ Business days and business hours for the JavaScript [Temporal API](https://devel
 - **Working hours** — "add 4 business hours", working time between two moments, breaks, half days, per-date hours. Exact across DST changes.
 - **Holiday data** — plug in [`date-holidays`](https://www.npmjs.com/package/date-holidays) (200+ countries), time-zone safe.
 - **Built for Temporal** — `PlainDate`, `PlainDateTime` and `ZonedDateTime` in, the same type out. Works with native Temporal, `temporal-polyfill` or `@js-temporal/polyfill`; no global `Temporal` needed, at runtime or in your types.
-- **Small and strict** — zero dependencies, tree-shakeable (workdays alone ≈ 1.8 kB, everything ≈ 5.7 kB min+brotli), ESM + CommonJS, strict TypeScript types, clear errors instead of silently wrong dates.
+- **Small and strict** — zero dependencies, tree-shakeable (workdays alone ≈ 3.2 kB, everything ≈ 7.4 kB min+brotli), ESM + CommonJS, strict TypeScript types, clear errors instead of silently wrong dates.
 
 ```sh
 npm install temporal-workdays
@@ -52,6 +52,55 @@ calendar.nextWorkday(Temporal.PlainDate.from('2026-03-19')).toString(); // → '
 
 `createWorkCalendar` validates and parses the options once. Every function also takes the options as its last
 argument, e.g. `addWorkdays(date, 3, { holidays })`.
+
+### Holiday rules and observed days
+
+Holidays can be rules: a fixed date every year, the nth (or last) weekday of a month, or a day relative to Easter.
+`observed` moves holidays that fall on a weekend to a workday.
+
+```ts
+import { createWorkCalendar } from 'temporal-workdays';
+
+const usFederal = createWorkCalendar({
+  observed: 'nearest', // Saturday → Friday, Sunday → Monday
+  holidays: [
+    '01-01',
+    { name: 'MLK Day', month: 1, dayOfWeek: 1, week: 3 },
+    { name: 'Memorial Day', month: 5, dayOfWeek: 1, week: -1 },
+    { name: 'Juneteenth', month: 6, day: 19, from: 2021 },
+    '07-04',
+    { name: 'Thanksgiving', month: 11, dayOfWeek: 4, week: 4 },
+    '12-25',
+  ],
+});
+
+// July 4, 2026 is a Saturday, so it is observed on Friday the 3rd.
+usFederal.isHoliday(Temporal.PlainDate.from('2026-07-03')); // → true
+usFederal.isHoliday(Temporal.PlainDate.from('2026-11-26')); // → true
+// New Year's Day 2022 was a Saturday: observed on Friday, December 31, 2021.
+usFederal.isHoliday(Temporal.PlainDate.from('2021-12-31')); // → true
+
+const england = createWorkCalendar({
+  observed: 'next', // the next free workday
+  holidays: [{ name: 'Good Friday', easter: -2 }, { name: 'Easter Monday', easter: 1 }, '12-25', '12-26'],
+});
+
+england.isHoliday(Temporal.PlainDate.from('2026-04-03')); // → true
+// Christmas 2021 was a Saturday and Boxing Day a Sunday: observed Monday the 27th and Tuesday the 28th.
+england.isHoliday(Temporal.PlainDate.from('2021-12-28')); // → true
+```
+
+| Rule                                 | Example                                                    |
+| ------------------------------------ | ---------------------------------------------------------- |
+| every year on a date                 | `'12-25'` or `{ month: 12, day: 25 }`                      |
+| nth weekday of a month (`-1` = last) | `{ month: 11, dayOfWeek: 4, week: 4 }`                     |
+| relative to Easter Sunday            | `{ easter: -2 }`, `{ easter: 1, orthodox: true }`          |
+| one date                             | `'2026-07-03'` or `{ date: '2026-07-03' }`                 |
+| options on any rule                  | `offset` (days), `from` / `to` (years), `observed`, `name` |
+
+`observed` is `'nearest'`, `'next'`, `'previous'` or `'none'` (the default), and can also be set per rule. These rules
+are tested against [`date-holidays`](https://www.npmjs.com/package/date-holidays): the US federal and England & Wales
+holidays above match its data for every year from 1990 to 2060, and Western and Orthodox Easter for 1900–2100.
 
 ## Working hours
 
@@ -95,6 +144,48 @@ shop.getWorkingHours(Temporal.PlainDate.from('2026-12-24')); // → [['09:00', '
 ```
 
 `specialHours` can also be a function `(date, regularHours) => hours | undefined`.
+
+### Overnight shifts
+
+A range whose end is before its start runs into the next morning. It belongs to the day it starts, so Friday's night
+shift is worked even though Saturday is a weekend:
+
+```ts
+import { createWorkCalendar } from 'temporal-workdays';
+
+const nights = createWorkCalendar({ hours: [['22:00', '06:00']] });
+
+// Saturday 03:00 is inside Friday's shift.
+nights.isWorkingTime(Temporal.PlainDateTime.from('2026-11-07T03:00')); // → true
+// 7 hours finish Friday's shift; the next shift is Monday night.
+nights.addWorkingTime(Temporal.PlainDateTime.from('2026-11-06T23:00'), { hours: 8 }).toString(); // → '2026-11-09T23:00:00'
+nights.getWorkingHours(Temporal.PlainDate.from('2026-11-06')); // → [['22:00', '06:00']]
+```
+
+### Pausing the clock
+
+Support SLAs usually stop while a ticket waits on the customer. Pass the paused periods to `workingTimeBetween`, then
+add what's left to get the deadline:
+
+```ts
+import { createWorkCalendar } from 'temporal-workdays';
+
+const support = createWorkCalendar({ hours: [['09:00', '17:00']] });
+
+const opened = Temporal.PlainDateTime.from('2026-11-09T15:00'); // Monday
+const now = Temporal.PlainDateTime.from('2026-11-10T15:00');
+const waitingOnCustomer = [
+  [Temporal.PlainDateTime.from('2026-11-10T09:00'), Temporal.PlainDateTime.from('2026-11-10T13:00')],
+];
+
+const used = support.workingTimeBetween(opened, now, { pauses: waitingOnCustomer });
+used.toString(); // → 'PT4H'
+
+const deadline = support.addWorkingTime(now, Temporal.Duration.from({ hours: 8 }).subtract(used));
+deadline.toString(); // → '2026-11-11T11:00:00'
+```
+
+Pauses may overlap each other and the ends of the range; each working minute is left out at most once.
 
 How the edges work:
 
@@ -160,13 +251,13 @@ isWorkday(Temporal.PlainDate.from('2026-11-26'), options); // → false
 
 ### Working time — accept `PlainDateTime` or `ZonedDateTime`, need `hours`
 
-| Function                                                                         | Returns                                                                                     |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `isWorkingTime(dateTime)`                                                        | `boolean`                                                                                   |
-| `addWorkingTime(dateTime, duration)` / `subtractWorkingTime(dateTime, duration)` | `T`. `duration` is a `Temporal.Duration` or `{ hours, minutes, … }` (no days/weeks/months). |
-| `workingTimeBetween(start, end)`                                                 | `Temporal.Duration` balanced up to hours (`PT27H30M`); negative if `end < start`.           |
-| `rollForwardToWorkingTime(dateTime)` / `rollBackwardToWorkingTime(dateTime)`     | `T`: `dateTime` if it is working time, else the next period start / previous period end.    |
-| `getWorkingHours(date)`                                                          | The periods of that date, e.g. `[['09:00', '17:00']]`.                                      |
+| Function                                                                         | Returns                                                                                                  |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `isWorkingTime(dateTime)`                                                        | `boolean`                                                                                                |
+| `addWorkingTime(dateTime, duration)` / `subtractWorkingTime(dateTime, duration)` | `T`. `duration` is a `Temporal.Duration` or `{ hours, minutes, … }` (no days/weeks/months).              |
+| `workingTimeBetween(start, end, { pauses })`                                     | `Temporal.Duration` balanced up to hours (`PT27H30M`); negative if `end < start`; `pauses` are left out. |
+| `rollForwardToWorkingTime(dateTime)` / `rollBackwardToWorkingTime(dateTime)`     | `T`: `dateTime` if it is working time, else the next period start / previous period end.                 |
+| `getWorkingHours(date)`                                                          | The periods of that date, e.g. `[['09:00', '17:00']]`.                                                   |
 
 ### Calendars and adapters
 
@@ -177,13 +268,14 @@ isWorkday(Temporal.PlainDate.from('2026-11-26'), options); // → false
 
 ### Options
 
-| Option          | Type                                                                                                                                                              | Default                   |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `weekend`       | ISO days of week, `1` (Mon) … `7` (Sun)                                                                                                                           | `[6, 7]`                  |
-| `holidays`      | `'YYYY-MM-DD'`, `'MM-DD'` (yearly), `Temporal.PlainDate`, `Temporal.PlainMonthDay`, or `(date) => boolean`                                                        | none                      |
-| `extraWorkdays` | `'YYYY-MM-DD'` or `Temporal.PlainDate`: workdays even on a weekend or holiday                                                                                     | none                      |
-| `hours`         | `[[start, end], …]` for every workday, or `{ 1: […], …, 7: […], default: […] }`. Times are `'HH:MM[:SS[.f]]'` or `Temporal.PlainTime`; `'24:00'` may end a period | required for working time |
-| `specialHours`  | `{ 'YYYY-MM-DD': [[start, end], …] }` (`[]` = closed), or `(date, regularHours) => hours \| undefined`                                                            | none                      |
+| Option          | Type                                                                                                                                                                                                                                  | Default                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `weekend`       | ISO days of week, `1` (Mon) … `7` (Sun)                                                                                                                                                                                               | `[6, 7]`                  |
+| `holidays`      | `'YYYY-MM-DD'`, `'MM-DD'` (yearly), `Temporal.PlainDate`, `Temporal.PlainMonthDay`, [rules](#holiday-rules-and-observed-days), or `(date) => boolean`                                                                                 | none                      |
+| `observed`      | `'nearest'`, `'next'`, `'previous'` or `'none'`: where listed holidays on a weekend are observed                                                                                                                                      | `'none'`                  |
+| `extraWorkdays` | `'YYYY-MM-DD'` or `Temporal.PlainDate`: workdays even on a weekend or holiday                                                                                                                                                         | none                      |
+| `hours`         | `[[start, end], …]` for every workday, or `{ 1: […], …, 7: […], default: […] }`. Times are `'HH:MM[:SS[.f]]'` or `Temporal.PlainTime`; `'24:00'` may end a period; an end before the start is an [overnight](#overnight-shifts) range | required for working time |
+| `specialHours`  | `{ 'YYYY-MM-DD': [[start, end], …] }` (`[]` = closed), or `(date, regularHours) => hours \| undefined`                                                                                                                                | none                      |
 
 Invalid input throws a `RangeError` or `TypeError` that says what is wrong, including unknown option names.
 A configuration without any workdays or working time throws instead of looping forever.

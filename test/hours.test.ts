@@ -360,7 +360,7 @@ describe('createWorkCalendar with hours', () => {
   });
 
   it('validates hours eagerly', () => {
-    expect(() => createWorkCalendar({ hours: [['17:00', '09:00']] })).toThrow(RangeError);
+    expect(() => createWorkCalendar({ hours: [['09:00', '09:00']] })).toThrow(/empty/);
   });
 });
 
@@ -380,8 +380,8 @@ describe('validation', () => {
       [['09:00']],
       [['09:00', '17:00', '18:00']],
       ['09:00-17:00'],
-      [['17:00', '09:00']],
       [['09:00', '09:00']],
+      [['24:00', '06:00']],
       [
         ['09:00', '13:00'],
         ['12:00', '17:00'],
@@ -409,7 +409,7 @@ describe('validation', () => {
     expect(() => isWorkingTime(d, { ...office, specialHours: { tomorrow: [] } })).toThrow(RangeError);
     expect(() => isWorkingTime(d, { ...office, specialHours: { '2024-01-01': 'closed' as never } })).toThrow(TypeError);
     expect(() => isWorkingTime(d, { ...office, specialHours: () => 'closed' as never })).toThrow(
-      /specialHours\(2024-01-01\)/,
+      /specialHours\(\d{4}-\d{2}-\d{2}\)/,
     );
   });
 

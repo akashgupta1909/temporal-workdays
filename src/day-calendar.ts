@@ -1,9 +1,10 @@
 // Compiles `WorkdayOptions` into integer lookups and answers "is this epoch day a workday?".
 
-import { dayOfWeekFromEpochDay, daysInMonth, epochDayFromIso, isoFromEpochDay } from './epoch.js';
+import { dayOfWeekFromEpochDay, isoFromEpochDay } from './epoch.js';
 import { describe, rangeError, typeError } from './errors.js';
-import { epochDayOf, hasBrand, isPlainDate, type DateFactory } from './temporal.js';
-import type { DayOfWeek, HolidayInput, HolidayPredicate, PlainMonthDayLike, WorkdayOptions } from './types.js';
+import { compileHoliday, holidaysOfYear, parseDate, parseObservance, type CompiledRule } from './holiday-rules.js';
+import type { DateFactory } from './temporal.js';
+import type { DayOfWeek, HolidayInput, HolidayPredicate, Observance, WorkdayOptions } from './types.js';
 
 /** Longest run of consecutive non-working days searched before giving up (≈ 20 years). */
 export const MAX_SCAN_DAYS = 366 * 20;
@@ -11,64 +12,29 @@ export const MAX_SCAN_DAYS = 366 * 20;
 export interface DayCalendar {
   /** Indexed by ISO day of week 1..7. */
   readonly weekend: readonly boolean[];
-  /** Single-date holidays, as epoch days. */
-  readonly dates: ReadonlySet<number>;
-  /** Annual holidays, as `month * 100 + day`. */
-  readonly annual: ReadonlySet<number>;
+  /** Rules that apply every year (fixed dates, nth weekdays, Easter-relative). */
+  readonly yearly: readonly CompiledRule[];
+  /** One-off date rules, indexed by year. */
+  readonly byYear: ReadonlyMap<number, readonly CompiledRule[]>;
   readonly predicate: HolidayPredicate | undefined;
+  readonly observed: Observance;
   /** Extra workdays, as epoch days. */
   readonly extra: ReadonlySet<number>;
+  /** Holiday epoch days per year, computed on first use. */
+  readonly cache: Map<number, ReadonlySet<number>>;
 }
 
-const DATE_RE = /^([+-]\d{6}|\d{4})-(\d{2})-(\d{2})$/;
-const MONTH_DAY_RE = /^(?:--)?(\d{2})-(\d{2})$/;
 /** Every option name any function accepts, so one options object can be shared by all of them. */
 export const OPTION_KEYS: ReadonlySet<string> = new Set([
   'weekend',
   'holidays',
+  'observed',
   'extraWorkdays',
   'hours',
   'specialHours',
 ]);
 
-function checkDate(year: number, month: number, day: number, source: unknown): void {
-  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
-    throw rangeError(`invalid date ${describe(source)}`);
-  }
-}
-
-/** Parses a single calendar date: `'YYYY-MM-DD'` (or extended `±YYYYYY-MM-DD`) or a `Temporal.PlainDate`. */
-export function parseDate(value: unknown): number {
-  if (typeof value === 'string') {
-    const m = DATE_RE.exec(value);
-    if (!m) throw rangeError(`expected a "YYYY-MM-DD" date, got ${describe(value)}`);
-    const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
-    checkDate(year, month, day, value);
-    return epochDayFromIso(year, month, day);
-  }
-  if (isPlainDate(value)) return epochDayOf(value);
-  throw typeError(`expected a "YYYY-MM-DD" string or Temporal.PlainDate, got ${describe(value)}`);
-}
-
-function addHoliday(entry: HolidayInput, dates: Set<number>, annual: Set<number>): void {
-  if (typeof entry === 'string') {
-    const md = MONTH_DAY_RE.exec(entry);
-    if (md) {
-      const [month, day] = [Number(md[1]), Number(md[2])];
-      checkDate(2000, month, day, entry); // a leap year, so that 02-29 is accepted
-      annual.add(month * 100 + day);
-      return;
-    }
-  } else if (hasBrand(entry, 'Temporal.PlainMonthDay')) {
-    const pmd = entry as PlainMonthDayLike;
-    if (pmd.calendarId !== 'iso8601') {
-      throw rangeError('Temporal.PlainMonthDay holidays must use the iso8601 calendar');
-    }
-    annual.add(Number(pmd.monthCode.slice(1)) * 100 + pmd.day);
-    return;
-  }
-  dates.add(parseDate(entry));
-}
+export { parseDate };
 
 export function isIterable(value: unknown): value is Iterable<unknown> {
   return (
@@ -105,16 +71,25 @@ export function compileDayCalendar(options: WorkdayOptions = {}): DayCalendar {
     weekend[d as DayOfWeek] = true;
   }
 
-  const dates = new Set<number>();
-  const annual = new Set<number>();
+  const yearly: CompiledRule[] = [];
+  const byYear = new Map<number, CompiledRule[]>();
   let predicate: HolidayPredicate | undefined;
   const holidays: unknown = options.holidays;
   if (typeof holidays === 'function') {
     predicate = holidays as HolidayPredicate;
   } else if (holidays !== undefined) {
     if (!isIterable(holidays)) throw typeError(`holidays must be an array or a function, got ${describe(holidays)}`);
-    for (const entry of holidays) addHoliday(entry as HolidayInput, dates, annual);
+    for (const entry of holidays) {
+      const rule = compileHoliday(entry as HolidayInput);
+      if (rule.kind === 'date') {
+        const year = isoFromEpochDay(rule.epochDay)[0];
+        byYear.set(year, [...(byYear.get(year) ?? []), rule]);
+      } else {
+        yearly.push(rule);
+      }
+    }
   }
+  const observed = options.observed === undefined ? 'none' : parseObservance(options.observed, 'observed');
 
   const extra = new Set<number>();
   const extraWorkdays: unknown = options.extraWorkdays;
@@ -123,19 +98,36 @@ export function compileDayCalendar(options: WorkdayOptions = {}): DayCalendar {
     for (const entry of extraWorkdays) extra.add(parseDate(entry));
   }
 
-  return { weekend, dates, annual, predicate, extra };
+  return { weekend, yearly, byYear, predicate, observed, extra, cache: new Map() };
 }
 
 export function isWeekendDay(cal: DayCalendar, epochDay: number): boolean {
   return cal.weekend[dayOfWeekFromEpochDay(epochDay)] === true;
 }
 
+const NO_RULES: readonly CompiledRule[] = [];
+
+/** Holiday epoch days of `year` from the listed rules (not the predicate), cached. */
+function listedHolidaysOfYear(cal: DayCalendar, year: number): ReadonlySet<number> {
+  let days = cal.cache.get(year);
+  if (!days) {
+    const rulesFor = (y: number): readonly CompiledRule[] => {
+      const dated = cal.byYear.get(y);
+      return dated ? [...cal.yearly, ...dated] : cal.yearly.length > 0 ? cal.yearly : NO_RULES;
+    };
+    days = holidaysOfYear(rulesFor, year, cal.observed, (d) => isWeekendDay(cal, d));
+    cal.cache.set(year, days);
+  }
+  return days;
+}
+
 /** Holiday check that ignores `extraWorkdays`. */
 function isListedHoliday(cal: DayCalendar, epochDay: number, dates: DateFactory): boolean {
-  if (cal.dates.has(epochDay)) return true;
-  if (cal.annual.size > 0) {
-    const [, month, day] = isoFromEpochDay(epochDay);
-    if (cal.annual.has(month * 100 + day)) return true;
+  if (
+    (cal.yearly.length > 0 || cal.byYear.size > 0) &&
+    listedHolidaysOfYear(cal, isoFromEpochDay(epochDay)[0]).has(epochDay)
+  ) {
+    return true;
   }
   return Boolean(cal.predicate?.(dates.at(epochDay)));
 }

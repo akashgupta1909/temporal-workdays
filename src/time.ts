@@ -9,7 +9,10 @@ export const NS_PER_MINUTE = 60 * NS_PER_SECOND;
 export const NS_PER_HOUR = 60 * NS_PER_MINUTE;
 export const NS_PER_DAY = 24 * NS_PER_HOUR;
 
-/** A half-open interval `[start, end)` within one day, in nanoseconds since midnight. */
+/**
+ * A half-open interval `[start, end)` in nanoseconds since midnight of its day. `end` can exceed
+ * one day (up to 48 hours) for overnight ranges, which belong to the day they start.
+ */
 export type Interval = readonly [start: number, end: number];
 
 const TIME_RE = /^(\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?$/;
@@ -65,11 +68,11 @@ export function parseDayHours(value: unknown, where: string): readonly Interval[
       throw typeError(`${where}: each range must be a [start, end] pair, got ${describe(range)}`);
     }
     const [start, end] = range as unknown as TimeRange;
-    const interval: Interval = [parseTime(start), parseTime(end)];
-    if (interval[0] >= interval[1]) {
-      throw rangeError(`${where}: range start must be before its end, got ${describe(start)}–${describe(end)}`);
-    }
-    return interval;
+    const [from, to] = [parseTime(start), parseTime(end)];
+    if (from === NS_PER_DAY) throw rangeError(`${where}: a range can't start at 24:00`);
+    if (from === to) throw rangeError(`${where}: range is empty, got ${describe(start)}–${describe(end)}`);
+    // An end before the start is an overnight range that finishes the next morning.
+    return [from, to < from ? to + NS_PER_DAY : to];
   });
   ranges.sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];
@@ -86,8 +89,11 @@ export function parseDayHours(value: unknown, where: string): readonly Interval[
   return merged;
 }
 
+/** Formats ranges; an overnight range comes back with its end before its start (`['22:00', '06:00']`). */
 export function formatDayHours(intervals: readonly Interval[]): readonly TimeRangeText[] {
-  return intervals.map(([start, end]) => [formatTime(start), formatTime(end)] as const);
+  return intervals.map(
+    ([start, end]) => [formatTime(start), formatTime(end > NS_PER_DAY ? end - NS_PER_DAY : end)] as const,
+  );
 }
 /** `intervals` minus `[cutStart, cutEnd)`. */
 export function subtractInterval(intervals: readonly Interval[], cutStart: number, cutEnd: number): Interval[] {

@@ -39,11 +39,51 @@ export type DateInput = PlainDateLike | DateTimeLike;
 export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 /**
+ * Where a holiday that falls on a weekend day is observed:
+ * - `'nearest'` — the nearest workday (Saturday → Friday, Sunday → Monday; US federal style).
+ * - `'next'` — the next free workday (UK bank holiday style: Christmas on Saturday → Monday,
+ *   Boxing Day on Sunday → Tuesday).
+ * - `'previous'` — the previous free workday.
+ * - `'none'` — not moved (the default).
+ */
+export type Observance = 'nearest' | 'next' | 'previous' | 'none';
+
+/** Fields shared by every holiday rule. */
+export interface HolidayRuleOptions {
+  /** A label, for readability. */
+  readonly name?: string | undefined;
+  /** Days added to the computed date, e.g. `{ month: 11, dayOfWeek: 4, week: 4, offset: 1 }` for the day after Thanksgiving. */
+  readonly offset?: number | undefined;
+  /** First year the holiday exists (inclusive). */
+  readonly from?: number | undefined;
+  /** Last year the holiday exists (inclusive). */
+  readonly to?: number | undefined;
+  /** Overrides the calendar's `observed` setting for this holiday. */
+  readonly observed?: Observance | undefined;
+}
+
+/**
+ * A holiday defined by a rule:
+ * - `{ date: '2026-07-03' }` — one date.
+ * - `{ month: 12, day: 25 }` — every year on that date.
+ * - `{ month: 11, dayOfWeek: 4, week: 4 }` — the 4th Thursday of November; `week: -1` is the last.
+ * - `{ easter: -2 }` — relative to Western Easter Sunday (Good Friday); `orthodox: true` for Orthodox Easter.
+ */
+export type HolidayRule = HolidayRuleOptions &
+  (
+    | { readonly date: string | PlainDateLike }
+    | { readonly month: number; readonly day: number }
+    | { readonly month: number; readonly dayOfWeek: DayOfWeek; readonly week: number }
+    | { readonly easter: number; readonly orthodox?: boolean | undefined }
+  );
+
+/**
  * A holiday entry:
  * - `'2026-12-25'` or a `Temporal.PlainDate` — a single date.
  * - `'12-25'` or a `Temporal.PlainMonthDay` — every year on that ISO month/day.
+ * - a {@link HolidayRule}, e.g. `{ month: 5, dayOfWeek: 1, week: -1 }` (last Monday of May).
  */
-export type HolidayInput = string | PlainDateLike | PlainMonthDayLike;
+export type HolidayInput = string | PlainDateLike | PlainMonthDayLike | HolidayRule;
 
 /**
  * Decides whether a date is a holiday. Receives an ISO-calendar `Temporal.PlainDate`
@@ -56,8 +96,13 @@ export type HolidayPredicate = { bivarianceHack(date: PlainDateLike): boolean }[
 export interface WorkdayOptions {
   /** Non-working days of the week. Default `[6, 7]` (Saturday, Sunday). */
   readonly weekend?: readonly DayOfWeek[] | undefined;
-  /** Holiday dates, or a function that decides whether a date is a holiday. */
+  /** Holiday dates and rules, or a function that decides whether a date is a holiday. */
   readonly holidays?: Iterable<HolidayInput> | HolidayPredicate | undefined;
+  /**
+   * Where listed holidays that fall on a weekend day are observed (default `'none'`).
+   * Doesn't apply to a `holidays` function. Individual rules can override it.
+   */
+  readonly observed?: Observance | undefined;
   /**
    * Dates that count as workdays even if they fall on the weekend or a holiday
    * (for example, make-up working Saturdays). Single dates only.
@@ -152,7 +197,10 @@ export type DurationOf<T> = T extends { until(...args: never[]): infer D } ? D :
 /** A time of day: `'HH:MM'`, `'HH:MM:SS'`, `'HH:MM:SS.fffffffff'` or a `Temporal.PlainTime`. */
 export type TimeInput = string | PlainTimeLike;
 
-/** A working period within one day, `[start, end)`. `'24:00'` is allowed as an end. */
+/**
+ * A working period `[start, end)`. `'24:00'` is allowed as an end. An end before the start is an
+ * overnight range (`['22:00', '06:00']`), which belongs to the day it starts.
+ */
 export type TimeRange = readonly [start: TimeInput, end: TimeInput];
 
 /** The working periods of one day, e.g. `[['09:00', '12:00'], ['13:00', '17:00']]`. */
@@ -178,6 +226,12 @@ export type SpecialHoursFunction = {
 
 /** Hours for specific dates, keyed by `'YYYY-MM-DD'` (`[]` = closed), or a function. */
 export type SpecialHours = Readonly<Record<string, DayHours>> | SpecialHoursFunction;
+
+/** Extra options for `workingTimeBetween`. */
+export interface WorkingTimeBetweenOptions<T> {
+  /** Periods to leave out of the count, e.g. while an SLA clock is paused. May overlap. */
+  readonly pauses?: Iterable<readonly [start: T, end: T]> | undefined;
+}
 
 /** Workdays plus working hours, for the working-time functions. */
 export interface WorkingTimeOptions extends WorkdayOptions {

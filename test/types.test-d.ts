@@ -114,3 +114,35 @@ describe('date-holidays adapter types', () => {
     fromDateHolidays({ isHoliday: () => false });
   });
 });
+
+describe('0.4 types', () => {
+  it('accept holiday rules and observance', () => {
+    createWorkCalendar({
+      observed: 'nearest',
+      holidays: [
+        '12-25',
+        { month: 11, dayOfWeek: 4, week: 4, offset: 1, name: 'Day after Thanksgiving' },
+        { easter: -2 },
+        { easter: 1, orthodox: true, observed: 'next', from: 2000, to: 2100 },
+        { date: '2026-07-03' },
+        { month: 6, day: 19, from: 2021 },
+      ],
+    });
+    // @ts-expect-error 8 is not a day of week
+    createWorkCalendar({ holidays: [{ month: 1, dayOfWeek: 8, week: 1 }] });
+    // @ts-expect-error unknown observance
+    createWorkCalendar({ observed: 'monday' });
+  });
+
+  it('type pauses with the same Temporal type as start and end', () => {
+    const options: WorkingTimeOptions = { hours: [['22:00', '06:00']] };
+    expectTypeOf(
+      workingTimeBetween(zoned, zoned, options, { pauses: [[zoned, zoned]] }),
+    ).toEqualTypeOf<Temporal.Duration>();
+    // @ts-expect-error pauses must match the start/end type
+    workingTimeBetween(zoned, zoned, options, { pauses: [[dateTime, dateTime]] });
+    expectTypeOf(
+      createWorkCalendar(options).workingTimeBetween(dateTime, dateTime, { pauses: [] }),
+    ).toEqualTypeOf<Temporal.Duration>();
+  });
+});

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 (unreleased)
+
+### Added
+
+- **Holiday rules**: `{ month, day }`, nth / last weekday of a month (`{ month: 11, dayOfWeek: 4, week: 4 }`),
+  Easter-relative (`{ easter: -2 }`, Western or `orthodox: true`), one-off `{ date }`, with `offset`, `from` / `to`
+  years and `name`. Verified against `date-holidays` (US federal and England & Wales 1990–2060, Easter 1900–2100).
+- **Observed holidays**: `observed: 'nearest' | 'next' | 'previous' | 'none'` for the calendar or per rule, including
+  substitutes that cross a year boundary and skip days already taken.
+- **Overnight shifts**: ranges whose end is before the start (`['22:00', '06:00']`) run into the next morning and
+  belong to the day they start; exact across DST changes for `ZonedDateTime`.
+- **SLA pauses**: `workingTimeBetween(start, end, options, { pauses })` (and on calendars) leaves paused periods out.
+
+### Changed
+
+- A range like `['17:00', '09:00']` was an error and is now an overnight range. Empty ranges and ranges starting at
+  `24:00` are still rejected.
+- Bundle size: workday functions ≈ 3.2 kB (were 1.8 kB) because they now include the holiday-rule engine.
+
 ## 0.3.2
 
 - `publishConfig.access` is set to `public`, so publishing never needs `--access public`.

@@ -12,6 +12,7 @@ import {
   isWorkdayDay,
   MAX_SCAN_DAYS,
   parseDate,
+  isIterable,
   type DayCalendar,
 } from './day-calendar.js';
 import { dayOfWeekFromEpochDay, epochDayFromIso, floorDiv, isoFromEpochDay } from './epoch.js';
@@ -47,6 +48,7 @@ import type {
   PlainTimeLike,
   SpecialHoursFunction,
   TimeRangeText,
+  WorkingTimeBetweenOptions,
   WorkingTimeOptions,
   ZonedDateTimeLike,
 } from './types.js';
@@ -65,19 +67,14 @@ export interface HoursCalendar {
   /** The same, formatted, for passing to special-hours functions. */
   readonly weeklyText: Readonly<Record<DayOfWeek, readonly TimeRangeText[]>>;
   readonly special: Special;
+  /** Whether a day's periods can run into the next day (overnight ranges, or a special-hours function). */
+  readonly overnight: boolean;
 }
 
 function byDayOfWeek<V>(f: (dow: DayOfWeek) => V): Record<DayOfWeek, V> {
   return { 1: f(1), 2: f(2), 3: f(3), 4: f(4), 5: f(5), 6: f(6), 7: f(7) };
 }
 
-export const OPTION_KEYS: ReadonlySet<string> = new Set([
-  'weekend',
-  'holidays',
-  'extraWorkdays',
-  'hours',
-  'specialHours',
-]);
 const WEEKLY_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', '4', '5', '6', '7', 'default']);
 const EMPTY: readonly Interval[] = [];
 
@@ -114,7 +111,13 @@ export function compileHoursCalendar(options: WorkingTimeOptions): HoursCalendar
   const days = compileDayCalendar(options);
   const weekly = compileWeekly((options as Partial<WorkingTimeOptions> | undefined)?.hours);
   const weeklyText = byDayOfWeek((dow) => formatDayHours(weekly[dow]));
-  return { days, weekly, weeklyText, special: compileSpecial(options.specialHours) };
+  const special = compileSpecial(options.specialHours);
+  const spills = (intervals: readonly Interval[]): boolean => intervals.some(([, end]) => end > NS_PER_DAY);
+  const overnight =
+    Object.values(weekly).some(spills) ||
+    special.kind === 'function' ||
+    (special.kind === 'table' && [...special.byDay.values()].some(spills));
+  return { days, weekly, weeklyText, special, overnight };
 }
 
 /** The working intervals of an epoch day, after weekends, holidays and special hours. */
@@ -375,6 +378,11 @@ function noWorkingTimeError(): RangeError {
  * sorted and merged even when DST shifts move periods across midnight. Throws when
  * MAX_SCAN_DAYS consecutive days have no working time, instead of looping forever.
  */
+/** How far a day's periods can lie outside the day: the timeline's DST bound, plus a day for overnight ranges. */
+function lookaheadOf<T>(cal: HoursCalendar, tl: Timeline<T>): bigint {
+  return cal.overnight ? tl.lookahead + BIG_NS_PER_DAY : tl.lookahead;
+}
+
 function scan<T, R>(
   cal: HoursCalendar,
   tl: Timeline<T>,
@@ -383,14 +391,15 @@ function scan<T, R>(
   visit: (period: Period) => R | undefined,
 ): R {
   let pending: Period[] = [];
-  let day = Number(floorDiv(from - BigInt(dir) * tl.lookahead, BIG_NS_PER_DAY));
+  const lookahead = lookaheadOf(cal, tl);
+  let day = Number(floorDiv(from - BigInt(dir) * lookahead, BIG_NS_PER_DAY));
   for (let idle = 0; ; day += dir) {
     const periods = tl.periods(day, intervalsOn(cal, day, tl.dates));
     idle = periods.length === 0 ? idle + 1 : 0;
     if (idle > MAX_SCAN_DAYS) throw noWorkingTimeError();
     pending = addPeriods(pending, periods);
     // Every later day's periods lie beyond this frontier.
-    const frontier = dir === 1 ? wallPosition(day + 1, 0) - tl.lookahead : wallPosition(day, 0) + tl.lookahead;
+    const frontier = dir === 1 ? wallPosition(day + 1, 0) - lookahead : wallPosition(day, 0) + lookahead;
     for (;;) {
       const next = dir === 1 ? pending[0] : pending.at(-1);
       if (next === undefined || (dir === 1 ? next[0] >= frontier : next[1] <= frontier)) break;
@@ -460,8 +469,9 @@ function negate(duration: DurationInput): DurationInput {
 // period to it makes overlapping periods (possible across DST-shifted days) count once.
 
 function isWorkingPosition<T>(cal: HoursCalendar, tl: Timeline<T>, position: bigint): boolean {
-  const first = Number(floorDiv(position - tl.lookahead, BIG_NS_PER_DAY));
-  const last = Number(floorDiv(position + tl.lookahead, BIG_NS_PER_DAY));
+  const lookahead = lookaheadOf(cal, tl);
+  const first = Number(floorDiv(position - lookahead, BIG_NS_PER_DAY));
+  const last = Number(floorDiv(position + lookahead, BIG_NS_PER_DAY));
   for (let day = first; day <= last; day++) {
     for (const [start, end] of tl.periods(day, intervalsOn(cal, day, tl.dates))) {
       if (position >= start && position < end) return true;
@@ -549,13 +559,46 @@ export function subtractWorkingTimeWith<T extends DateTimeInput>(
   return addWorkingTimeWith(cal, dateTime, negate(duration));
 }
 
-export function workingTimeBetweenWith<T extends DateTimeInput>(cal: HoursCalendar, start: T, end: T): DurationOf<T> {
+export function workingTimeBetweenWith<T extends DateTimeInput>(
+  cal: HoursCalendar,
+  start: T,
+  end: T,
+  options: WorkingTimeBetweenOptions<T> = {},
+): DurationOf<T> {
   return withTimeline(start, (tl) => {
     const a = tl.origin;
     const b = tl.positionOf(end);
-    const ns = a <= b ? workingNsBetween(cal, tl, a, b) : -workingNsBetween(cal, tl, b, a);
-    return tl.duration(ns) as DurationOf<T>;
+    const [lo, hi] = a <= b ? [a, b] : [b, a];
+    let ns = workingNsBetween(cal, tl, lo, hi);
+    // Pauses are merged first, so overlapping pauses are subtracted once.
+    for (const [pauseStart, pauseEnd] of mergedPauses(tl, options)) {
+      const from = pauseStart > lo ? pauseStart : lo;
+      const to = pauseEnd < hi ? pauseEnd : hi;
+      if (to > from) ns -= workingNsBetween(cal, tl, from, to);
+    }
+    return tl.duration(a <= b ? ns : -ns) as DurationOf<T>;
   });
+}
+
+function mergedPauses<T>(tl: Timeline<T>, options: WorkingTimeBetweenOptions<DateTimeInput>): Period[] {
+  if (typeof options !== 'object' || (options as unknown) === null) {
+    throw typeError(`workingTimeBetween options must be an object, got ${describe(options)}`);
+  }
+  for (const key of Object.keys(options)) {
+    if (key !== 'pauses') throw typeError(`unknown option ${JSON.stringify(key)}`);
+  }
+  const pauses: unknown = options.pauses ?? [];
+  if (!isIterable(pauses)) throw typeError(`pauses must be an array of [start, end] pairs, got ${describe(pauses)}`);
+  const periods: Period[] = [];
+  for (const pause of pauses) {
+    if (!Array.isArray(pause) || pause.length !== 2) {
+      throw typeError(`each pause must be a [start, end] pair, got ${describe(pause)}`);
+    }
+    const [from, to] = [tl.positionOf(pause[0] as DateTimeInput), tl.positionOf(pause[1] as DateTimeInput)];
+    if (to < from) throw rangeError('a pause must not end before it starts');
+    periods.push([from, to]);
+  }
+  return normalizePeriods(periods);
 }
 
 export function rollForwardToWorkingTimeWith<T extends DateTimeInput>(cal: HoursCalendar, dateTime: T): T {
@@ -605,13 +648,16 @@ export function subtractWorkingTime<T extends DateTimeInput>(
 /**
  * Working time in `[start, end)` as a `Temporal.Duration` balanced up to hours (e.g. `PT27H30M`);
  * negative when `end` is before `start`. Use `.total('hours')` for a number.
+ *
+ * `pauses` (e.g. while a ticket waits on the customer) are left out of the count.
  */
 export function workingTimeBetween<T extends DateTimeInput>(
   start: T,
   end: NoInfer<T>,
   options: WorkingTimeOptions,
+  between?: WorkingTimeBetweenOptions<NoInfer<T>>,
 ): DurationOf<T> {
-  return workingTimeBetweenWith(compileHoursCalendar(options), start, end);
+  return workingTimeBetweenWith(compileHoursCalendar(options), start, end, between);
 }
 
 /** `dateTime` itself if it is working time, otherwise the start of the next working period. */
